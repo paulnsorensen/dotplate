@@ -16,3 +16,4 @@ sourceDir = "{{ .chezmoi.sourceDir }}"
 name = {{ promptStringOnce . "name" "Your full name (for git config)" "" | quote }}
 email = {{ promptStringOnce . "email" "Your git email address" "" | quote }}
 localLLM = {{ promptBoolOnce . "localLLM" "Manage local LLM stack on this machine?" false }}
+editor = {{ promptStringOnce . "editor" "Preferred editor (vim/neovim/nano/code)" "vim" | quote }}

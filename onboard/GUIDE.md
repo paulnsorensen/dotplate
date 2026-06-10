@@ -167,9 +167,9 @@ Record `.passes[1].status = "done"` in `onboard/state.yaml`.
 
 ## Pass 2 — Identity & git
 
-**Goal:** Personalize git and chezmoi with the user’s name, email, and
+**Goal:** Personalize git and chezmoi with the user's name, email, and
 preferred editor. These are written into chezmoi templates so `dots sync`
-materializes `~/.gitconfig` and related files.
+materializes `~/.gitconfig` with `user.name`, `user.email`, and `core.editor`.
 
 ### Questions to ask
 
@@ -198,11 +198,16 @@ dots sync
 # Verify:
 git config user.name    # should return the name you entered
 git config user.email   # should return the email you entered
-echo $EDITOR            # should reflect the chosen editor
+git config core.editor  # should return the chosen editor
 ```
 
 Record `.passes[2].answers` with `name`, `email`, `editor`.
 Record `.passes[2].status = "done"`.
+
+> **Note on `localLLM`:** `chezmoi/.chezmoi.toml.tmpl` also prompts
+> `localLLM` (bool, default false). This controls whether the local LLM
+> stack (litellm, worker services) is deployed. Skip it in Pass 2 — it is
+> addressed in Pass 6 when the user opts into agent MCPs.
 
 ---
 
@@ -253,6 +258,8 @@ Record `.passes[3].status = "done"`.
 
 **Goal:** Walk the user through additional packages from
 `onboard/catalog/packages.yaml`. Filter by OS. Present each pitch.
+On macOS, also walk `onboard/catalog/mac-extras.yaml` for macOS-specific
+configuration items.
 
 ### How to walk the catalog
 
@@ -260,8 +267,20 @@ Read `onboard/catalog/packages.yaml`. For each entry:
 
 1. Present the name and `pitch`.
 2. If `os` is set and does not match `detected_os`, skip silently.
-3. Ask: “Would you like to install this?”
+3. Ask: "Would you like to install this?"
 4. On acceptance, add the entry to `packages/packages.yaml`.
+
+### macOS extras (gated on detected_os == macos)
+
+If `detected_os == macos`, also walk `onboard/catalog/mac-extras.yaml`.
+For each entry:
+
+1. Present the name and `pitch` (and explain more if `comfort == beginner`).
+2. Ask: "Would you like to apply this?"
+3. On acceptance, follow the `entry` block instructions to deploy the asset
+   to the appropriate location (LaunchAgent, `~/.config/...`, etc.).
+
+All `mac-extras` items have `os: macos` — skip silently on Linux.
 
 ### Materialize → `dots sync` → verify
 
@@ -272,6 +291,7 @@ which <binary>   # for each accepted package
 ```
 
 Record accepted packages in `.passes[4].answers.packages`.
+Record accepted mac-extras in `.passes[4].answers.mac_extras` (macOS only).
 Record `.passes[4].status = "done"`.
 
 ---
