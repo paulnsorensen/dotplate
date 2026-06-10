@@ -674,7 +674,9 @@ YAML
     grep -q 'name = {{ .name }}' "$tmpl"
     grep -q 'email = {{ .email }}' "$tmpl"
     # core.editor must be driven by the chezmoi data key so dots sync wires it.
-    grep -q 'editor = {{ .editor }}' "$tmpl"
+    # core.editor must use missingkey-safe get so machines whose chezmoi.toml
+    # predates the editor key don't abort on `chezmoi apply`.
+    grep -q 'get . "editor"' "$tmpl"
     # Public-repo guard: the template must carry no work gate and no
     # internal/employer hostname or address. Per-repo email is native git
     # (`git config user.email`), so no `.work`-gated block is needed.
@@ -688,6 +690,33 @@ YAML
     fi
 }
 
+@test "gitconfig editor renders as 'vim' when editor key is absent (missingkey-safe)" {
+    command -v chezmoi >/dev/null 2>&1 || skip "chezmoi not installed"
+    # WHY: `promptStringOnce` only fires at `chezmoi init`. Any machine with a
+    # chezmoi.toml persisted before the editor key was added lacks the key.
+    # A bare `{{ .editor }}` reference aborts `chezmoi apply` with missingkey=error.
+    # This test locks the fix: render with no editor key → must succeed + emit vim.
+    local cfg="$HOME/.config/chezmoi/chezmoi.toml"
+    mkdir -p "$(dirname "$cfg")"
+    cat > "$cfg" <<TOML
+sourceDir = "$REAL_DOTFILES_DIR/chezmoi"
+
+[data]
+name = "Test User"
+email = "test@example.com"
+localLLM = false
+TOML
+    # No editor key seeded — this is the regression scenario.
+    local rendered
+    rendered="$(chezmoi --config "$cfg" --source "$REAL_DOTFILES_DIR/chezmoi" \
+        execute-template < "$REAL_DOTFILES_DIR/chezmoi/private_dot_gitconfig.tmpl" 2>&1)" \
+        || { echo "chezmoi execute-template failed (missingkey=error regression): $rendered" >&2; return 1; }
+    # The editor line must appear with the 'vim' default.
+    if ! printf '%s\n' "$rendered" | grep -qF 'editor = vim'; then
+        echo "core.editor not rendered as 'vim' (got: $(printf '%s\n' "$rendered" | grep editor || echo '(no editor line)'))" >&2
+        return 1
+    fi
+}
 @test "copilot template emits literal \${VAR} placeholders, never resolved secrets" {
     # MCP-secret-passthrough: the template emits the LITERAL ${CONTEXT7_API_KEY}
     # / ${TAVILY_API_KEY} so Copilot expands them at launch — the secret stays
@@ -1235,4 +1264,21 @@ SH
     # the chezmoi seed is the source of truth. A re-introduced file would
     # quietly fight the chezmoi-seeded one via the legacy symlink path.
     [[ ! -f "$REAL_DOTFILES_DIR/claude/settings.json" ]]
+}
+
+@test "claude settings.json: allowWrite prek path matches zsh/core.zsh PREK_HOME convention" {
+    # WHY: zsh/core.zsh anchors PREK_HOME to ${DOTFILES_DIR}/.prek, which
+    # defaults to ~/dotfiles/.prek for a generic adopter. The sandbox
+    # allowWrite entry must agree — a mismatch silently blocks prek writes
+    # for anyone not cloned to ~/Dev.
+    local settings="$REAL_DOTFILES_DIR/chezmoi/dot_claude/create_settings.json"
+    # Must NOT contain the old personal ~/Dev/.prek path.
+    if jq -e '.sandbox.filesystem.allowWrite | map(select(test("Dev/.prek"))) | length > 0' \
+            "$settings" >/dev/null 2>&1; then
+        echo "settings.json allowWrite still hardcodes ~/Dev/.prek" >&2
+        return 1
+    fi
+    # The generic path ~/dotfiles/.prek must be present.
+    jq -e '.sandbox.filesystem.allowWrite | map(select(. == "~/dotfiles/.prek")) | length > 0' \
+        "$settings" >/dev/null
 }
