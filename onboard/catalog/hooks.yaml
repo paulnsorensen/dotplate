@@ -1,0 +1,42 @@
+# Catalog — hooks
+# Each item is an offerable hook during onboarding pass 6 (agent config).
+# Excludes: personal session-start hook, git-guard/sensitive-file-guard (already starter machinery).
+# The `entry` block is copied verbatim into agents/hooks/registry.yaml.
+# The `files` list names repo-relative paths of scripts/assets that must be present.
+
+hooks:
+  - name: moshi
+    pitch: Bridge to the Moshi iOS app — get phone notifications when your agent starts, submits, and finishes turns so you can monitor long runs remotely
+    complexity: high
+    os: macos
+    files:
+      - onboard/assets/hooks/moshi-note.md
+    entry: |
+      moshi-session-start:
+        event: SessionStart
+        command: "moshi-hook claude-hook"
+        async: true
+        harnesses: [claude]
+        description: Moshi bridge — session-start notification to phone
+
+      moshi-user-prompt-submit:
+        event: UserPromptSubmit
+        command: "moshi-hook claude-hook"
+        async: true
+        harnesses: [claude]
+        description: Moshi bridge — prompt-submit notification to phone
+
+      moshi-stop:
+        event: Stop
+        command: "moshi-hook claude-hook"
+        async: true
+        harnesses: [claude]
+        description: Moshi bridge — turn-end notification to phone
+
+      moshi-permission-request:
+        event: PermissionRequest
+        command: "moshi-hook claude-hook"
+        async: false
+        timeout: 300
+        harnesses: [claude]
+        description: Moshi bridge — approval request (synchronous, 5-min phone reach)

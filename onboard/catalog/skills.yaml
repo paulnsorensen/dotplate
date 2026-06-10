@@ -1,0 +1,18 @@
+# Catalog — skill sources
+# Each item is an offerable skill-source repo during onboarding pass 6 (agent config).
+# The `entry` block is copied verbatim into skills/_registry.yaml under `sources:`.
+
+skills:
+  - name: easy-cheese
+    pitch: Portable agent skills toolkit — mold/cook/press/age/cure TDD pipeline, cheez-* code intelligence, and melt/xray utilities
+    complexity: low
+    entry: |
+      easy-cheese:
+        description: Portable agent skills toolkit — mold, cook, press, age, cure, melt, plus cheez-* tilth-backed code intelligence
+
+  - name: tavily-ai-skills
+    pitch: Official Tavily skills — search, extract, crawl, map, research, and tavily-cli wrappers for AI-powered web research
+    complexity: low
+    entry: |
+      tavily-ai/skills:
+        description: Official Tavily skills — search, extract, crawl, map, research, dynamic-search, plus tavily-cli and best-practices

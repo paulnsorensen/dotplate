@@ -1,0 +1,55 @@
+# Catalog — macOS extras
+# Each item is an offerable macOS-specific configuration during onboarding pass 4.
+# All items are gated os: macos.
+# The `entry` block describes what to install/apply; `files` names the asset paths.
+
+mac-extras:
+  - name: macos-defaults
+    pitch: Sensible macOS system defaults — trackpad right-click, Magic Mouse two-button mode, browser link preference
+    complexity: low
+    os: macos
+    files:
+      - onboard/assets/mac-extras/macos/.sync
+    entry: |
+      # Run macos/.sync to apply system defaults
+      # Source: onboard/assets/mac-extras/macos/.sync
+
+  - name: caps-lock-remap
+    pitch: Remap Caps Lock to Control via a macOS LaunchAgent — system-wide, no app required
+    complexity: low
+    os: macos
+    files:
+      - onboard/assets/mac-extras/macos/com.local.KeyRemapping.plist
+    entry: |
+      # Deploy onboard/assets/mac-extras/macos/com.local.KeyRemapping.plist
+      # to ~/Library/LaunchAgents/ and load with launchctl
+
+  - name: skhd
+    pitch: Hotkey daemon configuration stub — add your own keyboard shortcuts for shell commands
+    complexity: medium
+    os: macos
+    files:
+      - onboard/assets/mac-extras/skhd/skhdrc
+    entry: |
+      # Deploy onboard/assets/mac-extras/skhd/skhdrc to ~/.config/skhd/skhdrc
+      # Requires skhd installed (see packages catalog)
+
+  - name: iterm2-selenized-dark
+    pitch: Selenized Dark color scheme for iTerm2 — dark background with high-contrast ANSI colors
+    complexity: low
+    os: macos
+    files:
+      - onboard/assets/mac-extras/iterm2/Selenized-Dark.itermcolors
+    entry: |
+      # Import onboard/assets/mac-extras/iterm2/Selenized-Dark.itermcolors
+      # via iTerm2 Preferences > Profiles > Colors > Color Presets > Import
+
+  - name: iterm2-selenized-deutan-warm
+    pitch: Selenized Deutan Warm color scheme for iTerm2 — warm neutral palette with deuteranopia-friendly accents
+    complexity: low
+    os: macos
+    files:
+      - onboard/assets/mac-extras/iterm2/selenized-deutan-warm.itermcolors
+    entry: |
+      # Import onboard/assets/mac-extras/iterm2/selenized-deutan-warm.itermcolors
+      # via iTerm2 Preferences > Profiles > Colors > Color Presets > Import

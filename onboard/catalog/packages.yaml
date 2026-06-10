@@ -1,0 +1,436 @@
+# Catalog — packages
+# Each item is an offerable package during onboarding pass 4 (packages).
+# Excludes: rtk (personal tool), moshi-hook (offered via hooks catalog),
+#   milknado (personal project path), and anything already in the starter set.
+# The `entry` block is copied verbatim into packages/packages.yaml under `packages:`.
+
+packages:
+  # ── Taps (brew tap infrastructure) ────────────────────────────────
+  - name: tap-tinted-theming
+    pitch: Homebrew tap for the tinted-theming/tinty base16/base24 theme switcher
+    complexity: low
+    entry: |
+      - tinted-theming/tinted: { source: tap }
+
+  - name: tap-koekeishiya
+    pitch: Homebrew tap for skhd (hotkey daemon) — macOS only
+    complexity: low
+    os: macos
+    entry: |
+      - koekeishiya/formulae: { source: tap }
+
+  - name: tap-oven-sh-bun
+    pitch: Homebrew tap for the bun JavaScript runtime
+    complexity: low
+    entry: |
+      - oven-sh/bun: { source: tap }
+
+  - name: tap-anomalyco
+    pitch: Homebrew tap for opencode (open-source AI coding agent)
+    complexity: low
+    entry: |
+      - anomalyco/tap: { source: tap }
+
+  # ── Core CLI ──────────────────────────────────────────────
+  - name: fzf
+    pitch: Fuzzy finder for the terminal — Ctrl-R history search, file picker, and more
+    complexity: low
+    entry: |
+      - fzf
+
+  - name: gh
+    pitch: GitHub CLI — create PRs, view issues, manage workflows without leaving the terminal
+    complexity: low
+    entry: |
+      - gh
+
+  - name: tree
+    pitch: Print directory trees in the terminal (used by fzf previews and other tools)
+    complexity: low
+    entry: |
+      - tree
+
+  - name: htop
+    pitch: Interactive process viewer — a better top
+    complexity: low
+    entry: |
+      - htop
+
+  - name: ripgrep
+    pitch: Fast regex search across files — respects .gitignore, powers code search aliases
+    complexity: low
+    entry: |
+      - ripgrep
+
+  - name: fd
+    pitch: Fast file finder — a simpler, faster find that respects .gitignore
+    complexity: low
+    entry: |
+      - fd: { apt: fd-find }
+
+  - name: eza
+    pitch: Modern ls replacement with colors, icons, and git status in file listings
+    complexity: low
+    entry: |
+      - eza
+
+  - name: bat
+    pitch: cat with syntax highlighting and line numbers — replaces cat in aliases
+    complexity: low
+    entry: |
+      - bat
+
+  - name: ast-grep
+    pitch: AST-based code search and rewrite — find patterns by structure, not text
+    complexity: low
+    entry: |
+      - ast-grep
+
+  - name: git-delta
+    pitch: Syntax-aware diff pager with side-by-side view and color themes
+    complexity: low
+    entry: |
+      - git-delta
+
+  - name: tmux
+    pitch: Terminal multiplexer — persistent sessions, splits, and windows; required by the ccw worktree launcher
+    complexity: medium
+    entry: |
+      - tmux
+
+  - name: tinty
+    pitch: Base16/Base24 theme switcher — change your terminal color scheme across all tools at once
+    complexity: low
+    entry: |
+      - tinty
+
+  - name: zoxide
+    pitch: Frecency-based cd — jump to any previously visited directory with a few characters
+    complexity: low
+    entry: |
+      - zoxide
+
+  - name: atuin
+    pitch: Shell history search with fuzzy matching, sync, and stats across machines
+    complexity: low
+    entry: |
+      - atuin
+
+  - name: bottom
+    pitch: System monitor (btm) — CPU, memory, disk, and network in a TUI
+    complexity: low
+    entry: |
+      - bottom
+
+  - name: dust
+    pitch: Disk usage with tree visualization — quickly find what is eating your disk
+    complexity: low
+    entry: |
+      - dust
+
+  - name: procs
+    pitch: Process viewer with keyword filtering and color coding (replaces ps)
+    complexity: low
+    entry: |
+      - procs
+
+  - name: tokei
+    pitch: Code statistics by language — line counts, blank lines, comments across the whole repo
+    complexity: low
+    entry: |
+      - tokei
+
+  - name: yazi
+    pitch: Terminal file manager with image previews and Vim-like keybindings
+    complexity: low
+    entry: |
+      - yazi
+
+  - name: difftastic
+    pitch: Structural diff tool — understands syntax so moves and reformats do not show as changes
+    complexity: low
+    entry: |
+      - difftastic
+
+  - name: mergiraf
+    pitch: Merge conflict resolver that understands code structure — fewer false conflicts
+    complexity: low
+    entry: |
+      - mergiraf
+
+  - name: lazygit
+    pitch: TUI git client — stage hunks, resolve conflicts, and manage branches visually
+    complexity: low
+    entry: |
+      - lazygit
+
+  - name: sesh
+    pitch: Tmux session switcher (macOS) — jump between project sessions with fzf
+    complexity: low
+    os: macos
+    entry: |
+      - joshmedeski/sesh: { source: tap }
+      - sesh: { platform: mac }
+
+  - name: duckdb
+    pitch: In-process SQL analytics on local data files — query CSVs and parquet with SQL
+    complexity: low
+    entry: |
+      - duckdb
+
+  - name: watch
+    pitch: Execute a command repeatedly and show output — useful for monitoring file changes
+    complexity: low
+    entry: |
+      - watch
+
+  - name: bun
+    pitch: Fast JavaScript/TypeScript runtime — required by several npm-sourced tools and MCP servers
+    complexity: low
+    entry: |
+      - bun
+
+  - name: sd
+    pitch: Sed replacement with a saner syntax for find-and-replace across files
+    complexity: low
+    entry: |
+      - sd
+
+  - name: vhs
+    pitch: Terminal screen recorder — write a script and generate GIFs or MP4s of terminal sessions
+    complexity: low
+    entry: |
+      - vhs
+
+  - name: gettext
+    pitch: GNU internationalization utilities (provides envsubst) — required by some build scripts
+    complexity: low
+    entry: |
+      - gettext
+
+  - name: mdvi
+    pitch: Markdown viewer for the terminal — renders markdown with color formatting
+    complexity: low
+    entry: |
+      - taf2/tap/mdvi
+
+  - name: opencode
+    pitch: Open-source AI coding agent (Anthropic-compatible) — alternative to Claude Code
+    complexity: low
+    entry: |
+      - anomalyco/tap/opencode
+
+  - name: crush
+    pitch: Charm terminal AI coding agent with MCP support via crush.json
+    complexity: low
+    entry: |
+      - charmbracelet/tap/crush
+
+  # ── Rust build acceleration ───────────────────────────────────────
+  - name: sccache
+    pitch: Rust compile caching — dramatically speeds up incremental Rust builds
+    complexity: low
+    entry: |
+      - sccache
+
+  - name: cargo-nextest
+    pitch: Faster parallel Rust test runner with better failure output than cargo test
+    complexity: low
+    entry: |
+      - cargo-nextest
+
+  - name: protobuf
+    pitch: Protocol buffer compiler (protoc) — required to build hallouminate from source
+    complexity: low
+    entry: |
+      - protobuf
+
+  # ── macOS-only ──────────────────────────────────────────────
+  - name: mas
+    pitch: Mac App Store CLI — install and update App Store apps from the terminal
+    complexity: low
+    os: macos
+    entry: |
+      - mas: { platform: mac }
+
+  - name: trash
+    pitch: Move files to Trash instead of deleting permanently — safer rm for the terminal
+    complexity: low
+    os: macos
+    entry: |
+      - trash: { platform: mac }
+
+  - name: terminal-notifier
+    pitch: Send macOS notifications from shell scripts — alert yourself when long commands finish
+    complexity: low
+    os: macos
+    entry: |
+      - terminal-notifier: { platform: mac }
+
+  - name: skhd
+    pitch: Hotkey daemon for macOS — bind keyboard shortcuts to shell commands system-wide
+    complexity: medium
+    os: macos
+    entry: |
+      - skhd: { platform: mac }
+
+  - name: emdash
+    pitch: Desktop UI for running coding agents in parallel — macOS app for multi-agent workflows
+    complexity: low
+    os: macos
+    entry: |
+      - emdash: { source: cask, platform: mac }
+
+  - name: claude-code
+    pitch: Claude Code terminal AI coding assistant — the primary agent harness this dotfiles setup is built around
+    complexity: low
+    os: macos
+    entry: |
+      - claude-code: { source: cask, platform: mac }
+
+  - name: cursor
+    pitch: Cursor AI code editor with built-in agent capabilities and MCP support
+    complexity: low
+    os: macos
+    entry: |
+      - cursor: { source: cask, platform: mac }
+      - cursor-cli: { source: cask, platform: mac }
+
+  - name: obsidian
+    pitch: Markdown knowledge base app — local-first notes with graph view and plugin ecosystem
+    complexity: low
+    os: macos
+    entry: |
+      - obsidian: { source: cask, platform: mac }
+
+  - name: moshi-hook
+    pitch: Moshi iOS phone bridge binary — required for the moshi hooks (macOS install via brew)
+    complexity: high
+    os: macos
+    entry: |
+      - rjyo/moshi/moshi-hook: { platform: mac }
+
+  # ── Linux-only ──────────────────────────────────────────────
+  - name: xclip
+    pitch: Clipboard tool for Linux — lets shell scripts copy to and paste from the system clipboard
+    complexity: low
+    os: linux
+    entry: |
+      - xclip: { platform: linux }
+
+  # ── Dev (DOTFILES_DEV=true) ───────────────────────────────────────
+  - name: dev-tools
+    pitch: Development toolchain extras (pyenv, rustup, docker-desktop) — enabled when DOTFILES_DEV=true
+    complexity: medium
+    entry: |
+      - pyenv: { dev: true }
+      - rustup: { dev: true }
+      - docker-desktop: { source: cask, dev: true, platform: mac, greedy: false }
+      - npm: { platform: linux, dev: true }
+
+  # ── LSP servers ──────────────────────────────────────────────
+  - name: lsp-servers
+    pitch: LSP language servers for Serena MCP — bash, yaml, Python, Go, Rust, TypeScript
+    complexity: medium
+    entry: |
+      - bash-language-server
+      - yaml-language-server
+      - pyright
+      - gopls: { dev: true }
+      - rust-analyzer
+      - vtsls: { source: npm, pkg: "@vtsls/language-server" }
+
+  # ── Linters and npm CLI tools ───────────────────────────────────
+  - name: eslint
+    pitch: JavaScript/TypeScript linter — enforces code style and catches common errors
+    complexity: low
+    entry: |
+      - eslint: { source: npm, pkg: "eslint@8" }
+
+  - name: ccusage
+    pitch: Claude Code usage tracker — see token spend and session statistics from the CLI
+    complexity: low
+    entry: |
+      - ccusage: { source: npm }
+
+  - name: agent-skills
+    pitch: Agent skills CLI (@govcraft/agent-skills) — install and manage skills from agentskills.io
+    complexity: low
+    entry: |
+      - agent-skills: { source: npm, pkg: "@govcraft/agent-skills" }
+
+  - name: jmux
+    pitch: Tmux workspace manager for parallel coding agents — launch and switch between agent sessions
+    complexity: medium
+    entry: |
+      - jmux: { source: npm, pkg: "@jx0/jmux" }
+      - hunkdiff: { source: npm }
+
+  - name: graphite
+    pitch: Stacked-diff PR workflow CLI (‘gt’) — manage stacked pull requests cleanly
+    complexity: medium
+    entry: |
+      - graphite: { source: npm, pkg: "@withgraphite/graphite-cli", platform: linux }
+
+  # ── uv tools ─────────────────────────────────────────────────
+  - name: ralphify
+    pitch: PR/diff summarizer — generates human-readable summaries of code changes
+    complexity: low
+    entry: |
+      - ralphify: { source: uv }
+
+  - name: code-review-graph
+    pitch: Python package for the code-review-graph MCP — install alongside the MCP entry
+    complexity: low
+    entry: |
+      - code-review-graph: { source: uv }
+
+  - name: check-jsonschema
+    pitch: JSON schema validator CLI — validate YAML/JSON files against schemas from the command line
+    complexity: low
+    entry: |
+      - check-jsonschema: { source: uv }
+
+  - name: skills-ref
+    pitch: Agentskills.io skills reference — browse available skills from the CLI
+    complexity: low
+    entry: |
+      - skills-ref: { source: uv, pkg: "git+https://github.com/agentskills/agentskills@main#subdirectory=skills-ref" }
+
+  - name: tavily-cli
+    pitch: Tavily CLI (‘tvly’) — run Tavily searches from the terminal or scripts
+    complexity: low
+    entry: |
+      - tavily-cli: { source: uv }
+
+  - name: serena-agent
+    pitch: Serena LSP code intelligence agent — required for the Serena MCP server
+    complexity: medium
+    entry: |
+      - serena-agent: { source: uv, flags: ["--python", "3.13", "--prerelease=allow"] }
+
+  # ── Cargo ───────────────────────────────────────────────────────
+  - name: cargo-llvm-cov
+    pitch: Rust code coverage via LLVM — generate coverage reports for Rust projects
+    complexity: low
+    entry: |
+      - cargo-llvm-cov: { source: cargo }
+
+  - name: cargo-update
+    pitch: Cargo install-update command — idempotent updates for all cargo-installed tools
+    complexity: low
+    entry: |
+      - cargo-update: { source: cargo }
+
+  # tilth and hallouminate cargo packages are excluded from the catalog:
+  # their source repos contain the maintainer GitHub username which conflicts
+  # with the template hygiene gate. Install these binaries by following the
+  # instructions in onboard/catalog/mcp.yaml for the tilth and hallouminate
+  # MCP entries (each entry's description links to the source repo).
+
+  # ── gh CLI extensions ────────────────────────────────────────────
+  - name: gh-stack
+    pitch: Native PR-stack management for GitHub — create and manage stacked pull requests with gh
+    complexity: low
+    entry: |
+      - gh-stack: { source: gh-extension, pkg: github/gh-stack }

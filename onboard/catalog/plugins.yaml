@@ -1,0 +1,62 @@
+# Catalog — Claude Code plugins
+# Each item is an offerable plugin during onboarding pass 6 (agent config).
+# Excludes: vaudeville, cheese-flow, milknado (all reference personal ~/Dev/ paths).
+# The `entry` block is copied verbatim into claude/plugins/registry.yaml under `plugins:`.
+
+plugins:
+  - name: claude-md-management
+    pitch: Audit and maintain your CLAUDE.md with session learnings — keeps your agent instructions accurate over time
+    complexity: low
+    entry: |
+      claude-md-management@claude-plugins-official:
+        description: Audit, maintain, and improve CLAUDE.md files with session learnings
+        scope: user
+        load: true
+
+  - name: playwright
+    pitch: Browser testing and automation from inside your agent — navigate, click, screenshot, and scrape web pages
+    complexity: medium
+    entry: |
+      playwright@claude-plugins-official:
+        description: Browser testing and automation with Playwright
+        scope: user
+        load: true
+
+  - name: frontend-design
+    pitch: Frontend design skill for UI/UX work — adds design-focused workflows for building and refining interfaces
+    complexity: low
+    entry: |
+      frontend-design@claude-plugins-official:
+        description: Frontend design skill for UI/UX implementation
+        scope: user
+        load: true
+
+  - name: plugin-dev
+    pitch: Plugin development toolkit — guided workflow for building and testing your own Claude Code plugins
+    complexity: medium
+    entry: |
+      plugin-dev@claude-plugins-official:
+        description: Plugin development toolkit for building and testing Claude Code plugins
+        scope: user
+        load: true
+
+  - name: skill-creator
+    pitch: Guided skill creation workflow — design, implement, and validate new agent skills with scaffolding support
+    complexity: medium
+    entry: |
+      skill-creator@claude-plugins-official:
+        description: Guided skill creation workflow with component design, implementation, and validation
+        scope: user
+        load: true
+
+  - name: todoist-flow
+    pitch: Todoist productivity suite — triage, organize, update, and extract reference material from your task list
+    complexity: low
+    requires_secret: TODOIST
+    entry: |
+      todoist-flow@todoist-flow:
+        description: Todoist productivity suite — triage, organize, update, extract reference material
+        scope: user
+        load: true
+        path: claude/plugins/local/todoist-flow
+        gate: TODOIST

@@ -1,0 +1,76 @@
+# colors.zsh - Shell color palette (Selenized Deutan Warm)
+# Warm neutral palette with deuteranopia-friendly accent colors.
+
+__SDW_BG="#2a1c12"
+__SDW_BG_256=234
+__SDW_BG_ALT="#3c291c"
+__SDW_BG_ALT_256=235
+__SDW_BG_HIGHLIGHT="#4f4030"
+__SDW_BG_HIGHLIGHT_256=238
+__SDW_DIM="#636363"
+__SDW_DIM_256=241
+__SDW_FG="#dac2b1"
+__SDW_FG_256=181
+__SDW_FG_BRIGHT="#f8f8f8"
+__SDW_FG_BRIGHT_256=231
+
+__SDW_RED="#e8575b"
+__SDW_RED_256=167
+__SDW_GREEN="#88b994"
+__SDW_GREEN_256=108
+__SDW_YELLOW="#ffae00"
+__SDW_YELLOW_256=214
+__SDW_BLUE="#768da1"
+__SDW_BLUE_256=103
+__SDW_MAGENTA="#b287cd"
+__SDW_MAGENTA_256=140
+__SDW_CYAN="#00c4fb"
+__SDW_CYAN_256=45
+
+__SDW_BR_RED="#ff7558"
+__SDW_BR_RED_256=209
+__SDW_BR_GREEN="#00dac0"
+__SDW_BR_GREEN_256=43
+__SDW_BR_YELLOW="#e9b76b"
+__SDW_BR_YELLOW_256=179
+__SDW_BR_BLUE="#349ee9"
+__SDW_BR_BLUE_256=74
+__SDW_BR_MAGENTA="#e17cb9"
+__SDW_BR_MAGENTA_256=175
+__SDW_BR_CYAN="#00ddf3"
+__SDW_BR_CYAN_256=45
+
+__SDW_BLACK="$__SDW_BG_ALT"
+__SDW_BLACK_256=$__SDW_BG_ALT_256
+__SDW_WHITE="$__SDW_FG"
+__SDW_WHITE_256=$__SDW_FG_256
+__SDW_BR_BLACK="$__SDW_DIM"
+__SDW_BR_BLACK_256=$__SDW_DIM_256
+__SDW_BR_WHITE="$__SDW_FG_BRIGHT"
+__SDW_BR_WHITE_256=$__SDW_FG_BRIGHT_256
+
+__SDW_ERROR="$__SDW_RED"
+__SDW_SUCCESS="$__SDW_GREEN"
+__SDW_WARNING="$__SDW_YELLOW"
+__SDW_INFO="$__SDW_CYAN"
+__SDW_COMMENT="$__SDW_DIM"
+__SDW_STRING="$__SDW_CYAN"
+__SDW_KEYWORD="$__SDW_MAGENTA"
+__SDW_FUNCTION="$__SDW_BLUE"
+__SDW_TYPE="$__SDW_YELLOW"
+__SDW_CONSTANT="$__SDW_MAGENTA"
+
+__SDW_FZF_COLORS="--color=bg:${__SDW_BG},bg+:${__SDW_BG_ALT}"
+__SDW_FZF_COLORS+=" --color=fg:${__SDW_FG},fg+:${__SDW_FG_BRIGHT}"
+__SDW_FZF_COLORS+=" --color=hl:${__SDW_CYAN},hl+:${__SDW_BR_CYAN}"
+__SDW_FZF_COLORS+=" --color=info:${__SDW_DIM},marker:${__SDW_GREEN}"
+__SDW_FZF_COLORS+=" --color=pointer:${__SDW_RED},prompt:${__SDW_BLUE}"
+__SDW_FZF_COLORS+=" --color=spinner:${__SDW_MAGENTA},header:${__SDW_MAGENTA}"
+
+export LS_COLORS='di=34:ln=36:so=35:pi=33:ex=32:bd=33;40:cd=33;40:su=31;40:sg=31;40:tw=34;40:ow=34;40:*.tar=31:*.tgz=31:*.zip=31:*.gz=31:*.bz2=31:*.7z=31:*.rar=31:*.jpg=35:*.jpeg=35:*.png=35:*.gif=35:*.svg=35:*.mp3=35:*.mp4=35:*.avi=35:*.mov=35:*.pdf=33:*.doc=33:*.docx=33:*.xls=33:*.xlsx=33:*.ppt=33:*.pptx=33:*.md=36:*.txt=37:*.json=33:*.xml=33:*.yaml=33:*.yml=33:*.toml=33:*.ini=33:*.conf=33:*.sh=32:*.bash=32:*.zsh=32:*.py=32:*.rb=32:*.js=32:*.ts=32:*.go=32:*.rs=32:*.c=32:*.cpp=32:*.h=32:*.hpp=32:*.java=32:*.vim=32:*.lua=32'
+export LSCOLORS='ExGxFxdxCxDxDxhbadacec'
+
+export __SDW_BG __SDW_BG_ALT __SDW_FG __SDW_FG_BRIGHT __SDW_DIM
+export __SDW_RED __SDW_GREEN __SDW_YELLOW __SDW_BLUE __SDW_MAGENTA __SDW_CYAN
+export __SDW_BR_RED __SDW_BR_GREEN __SDW_BR_YELLOW __SDW_BR_BLUE __SDW_BR_MAGENTA __SDW_BR_CYAN
+export __SDW_FZF_COLORS

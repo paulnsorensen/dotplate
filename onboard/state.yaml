@@ -1,0 +1,66 @@
+# onboard/state.yaml — resumable onboarding progress
+#
+# Schema:
+#   schema_version: integer — bump when the schema changes incompatibly
+#   detected_os:    string  — 'macos' | 'linux' | '' (set during Pass 0)
+#   secrets_strategy: string — 'onepassword' | 'envfile' | 'skip' | ''
+#                              set during Pass 5; gates secret-requiring items in Pass 6
+#   harnesses:      list    — agent harnesses in use (e.g. [claude, codex])
+#                              set during Pass 6
+#   passes:         list    — one entry per pass (index 0–7)
+#     index:        integer — pass number (0–7)
+#     name:         string  — human-readable pass name
+#     status:       string  — 'pending' | 'done'
+#     answers:      map     — key/value pairs recorded during the pass;
+#                            the GUIDE documents which keys each pass writes
+#
+# Resume protocol:
+#   Run: bash onboard/lib/state.sh next onboard/state.yaml
+#   It prints the first pending pass index, or 'done' if all passes are done.
+#   The GUIDE agent MAY use this helper or read state.yaml directly.
+
+schema_version: 1
+detected_os: ""
+secrets_strategy: ""
+harnesses: []
+
+passes:
+  - index: 0
+    name: prerequisites
+    status: pending
+    answers: {}
+
+  - index: 1
+    name: orientation
+    status: pending
+    answers: {}
+
+  - index: 2
+    name: identity
+    status: pending
+    answers: {}
+
+  - index: 3
+    name: shell
+    status: pending
+    answers: {}
+
+  - index: 4
+    name: packages
+    status: pending
+    answers: {}
+
+  - index: 5
+    name: secrets
+    status: pending
+    answers: {}
+
+  - index: 6
+    name: agent-config
+    status: pending
+    answers: {}
+
+  - index: 7
+    name: graduation
+    status: pending
+    answers: {}

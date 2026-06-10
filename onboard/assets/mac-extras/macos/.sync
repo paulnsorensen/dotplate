@@ -1,0 +1,47 @@
+#!/bin/bash
+# Sync macOS-specific configuration
+# - Installs LaunchAgents (e.g., Caps Lock → Control remap)
+
+set -euo pipefail
+
+if [[ "$(uname -s)" != "Darwin" ]]; then
+    echo "macos/.sync: skipping (not macOS)" >&2
+    exit 0
+fi
+
+readonly SCRIPT_DIR="$(cd "${BASH_SOURCE%/*}" && pwd)"
+readonly LAUNCH_AGENTS_DIR="$HOME/Library/LaunchAgents"
+
+mkdir -p "$LAUNCH_AGENTS_DIR"
+
+# Enable two-finger right-click on trackpad
+defaults write com.apple.driver.AppleMultitouchTrackpad TrackpadRightClick -bool true
+defaults write com.apple.driver.AppleBluetoothMultitouch.trackpad TrackpadRightClick -bool true
+defaults write NSGlobalDomain com.apple.trackpad.enableSecondaryClick -bool true
+
+# Enable right-click (secondary click) on Magic Mouse
+defaults write com.apple.driver.AppleBluetoothMultitouch.mouse MouseButtonMode -string TwoButton
+defaults write com.apple.AppleMultitouchMouse mouseButtonMode -string TwoButton
+
+# cmux: open terminal link clicks in the system default browser instead of
+# cmux's in-app browser. cmux's own help: "When off, links clicked in terminal
+# output open in your default browser."
+defaults write com.cmuxterm.app browserOpenTerminalLinksInCmuxBrowser -bool false
+
+for plist in "$SCRIPT_DIR"/*.plist; do
+    [[ -f "$plist" ]] || continue
+    name="${plist##*/}"
+    target="$LAUNCH_AGENTS_DIR/$name"
+
+    # Symlink the plist
+    if [[ -L "$target" ]]; then
+        rm "$target"
+    elif [[ -e "$target" ]]; then
+        mv "$target" "$target.bak"
+    fi
+    ln -s "$plist" "$target"
+
+    # Load the agent (unload first if already loaded)
+    launchctl bootout "gui/$(id -u)" "$target" 2>/dev/null || true
+    launchctl bootstrap "gui/$(id -u)" "$target"
+done

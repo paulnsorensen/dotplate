@@ -1,0 +1,47 @@
+# Catalog — zsh feature modules
+# Each item is an offerable zsh module during onboarding pass 3 (shell).
+# The `entry` block is copied verbatim into zshrc or core.zsh.
+# The `files` list names repo-relative paths of module files to source.
+
+zsh:
+  - name: aliases
+    pitch: Git, navigation, search, and modern-CLI aliases — git shortcuts, eza ls, bat cat, ripgrep helpers
+    complexity: low
+    files:
+      - onboard/assets/zsh/aliases.zsh
+    entry: |
+      source "$DOTFILES_DIR/zsh/aliases.zsh"
+
+  - name: fzf
+    pitch: Fzf key bindings and fuzzy completion — Ctrl-T file picker, Alt-C directory jump, Ctrl-R history search
+    complexity: low
+    files:
+      - onboard/assets/zsh/fzf.zsh
+    entry: |
+      source "$DOTFILES_DIR/zsh/fzf.zsh"
+
+  - name: themed-prompt
+    pitch: Powerline-style prompt with git branch, last-commit time, and path segments; requires a Nerd Font
+    complexity: medium
+    files:
+      - onboard/assets/zsh/colors.zsh
+      - onboard/assets/zsh/prompt.zsh
+    entry: |
+      source "$DOTFILES_DIR/zsh/colors.zsh"
+      source "$DOTFILES_DIR/zsh/prompt.zsh"
+
+  - name: claude-helpers
+    pitch: Claude Code launcher wrappers (cc, ccc, ccr), worktree session manager (ccw), and MCP/hook/plugin management aliases
+    complexity: medium
+    files:
+      - onboard/assets/zsh/claude.zsh
+    entry: |
+      source "$DOTFILES_DIR/zsh/claude.zsh"
+
+  - name: vi-mode
+    pitch: Vi key bindings for the shell — normal/insert mode, cursor shape changes, and v to edit command in $EDITOR
+    complexity: low
+    files:
+      - onboard/assets/zsh/vi-mode.zsh
+    entry: |
+      source "$DOTFILES_DIR/zsh/vi-mode.zsh"

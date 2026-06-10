@@ -1,0 +1,97 @@
+# Catalog — MCP servers
+# Each item is an offerable MCP during onboarding pass 6 (agent config).
+# The `entry` block is copied verbatim into agents/mcp/registry.yaml.
+
+mcps:
+  - name: tilth
+    pitch: AST-aware code search/read/edit via Tree-sitter; the foundation for cheez-* code-intelligence skills
+    complexity: low
+    entry: |
+      tilth:
+        command: tilth
+        args: ["--mcp", "--edit"]
+        scope: user
+        description: AST-aware code search/read/edit (Tree-sitter); backs cheez-* skills when cheese-flow is unavailable
+        gate_unless: CHEESE_FLOW
+
+  - name: hallouminate
+    pitch: Per-repo markdown wiki with semantic search — lets your agent remember decisions across sessions
+    complexity: low
+    entry: |
+      hallouminate:
+        command: hallouminate
+        args: ["serve"]
+        scope: user
+        description: Per-repo markdown wiki — semantic search (LanceDB + fastembed) and add/read/delete_markdown for LLM-authored notes
+
+  - name: context7
+    pitch: Live library/framework docs (React, Tailwind, Next.js, …) injected at query time — no stale training-data answers
+    complexity: low
+    requires_secret: CONTEXT7_API_KEY
+    entry: |
+      context7:
+        command: npx
+        args: ["-y", "@upstash/context7-mcp"]
+        env:
+          CONTEXT7_API_KEY: "${CONTEXT7_API_KEY}"
+        scope: user
+        optional: true
+        description: Library/framework docs (React, Tailwind, Next.js, …); backs /briesearch when cheese-flow is unavailable
+        gate_unless: CHEESE_FLOW
+
+  - name: tavily
+    pitch: AI-powered technical web research with source citations — search the live web from inside your agent
+    complexity: low
+    requires_secret: TAVILY_API_KEY
+    entry: |
+      tavily:
+        command: npx
+        args: ["-y", "tavily-mcp@latest"]
+        env:
+          TAVILY_API_KEY: "${TAVILY_API_KEY}"
+        scope: user
+        optional: true
+        description: AI-powered technical web research; backs /briesearch when cheese-flow is unavailable
+        gate_unless: CHEESE_FLOW
+
+  - name: todoist
+    pitch: Official Todoist MCP — let your agent read and update your task list when explicitly asked
+    complexity: low
+    requires_secret: TODOIST_API_KEY
+    entry: |
+      todoist:
+        command: npx
+        args: ["-y", "@doist/todoist-ai"]
+        env:
+          TODOIST_API_KEY: "${TODOIST_API_KEY}"
+        scope: user
+        optional: true
+        harnesses: []
+        description: Official Todoist MCP (Doist-maintained) — invoke only when explicitly requested
+
+  - name: code-review-graph
+    pitch: Structural code knowledge graph — semantic search, call chains, and impact-radius analysis for code review
+    complexity: medium
+    entry: |
+      code-review-graph:
+        command: uvx
+        args: ["--from", "code-review-graph[embeddings]", "code-review-graph", "serve"]
+        env:
+          CRG_TOOLS: "build_or_update_graph_tool,get_review_context_tool,detect_changes_tool,get_impact_radius_tool,get_affected_flows_tool,get_architecture_overview_tool,get_hub_nodes_tool,get_bridge_nodes_tool,find_large_functions_tool,list_communities_tool,get_community_tool,semantic_search_nodes_tool,get_minimal_context_tool,get_knowledge_gaps_tool"
+        scope: user
+        description: Structural code knowledge graph via Tree-sitter — semantic search, call chains, impact radius, flows, communities
+
+  - name: serena
+    pitch: LSP-grounded semantic code intelligence — symbol lookup, references, refactors; more precise than grep for large codebases
+    complexity: medium
+    entry: |
+      serena:
+        command: serena
+        args:
+          - start-mcp-server
+          - --context={{ if eq $h "claude" }}claude-code{{ else }}{{ $h }}{{ end }}
+          - --project-from-cwd
+          - --enable-web-dashboard=false
+          - --open-web-dashboard=false
+        scope: user
+        description: Semantic code intel via LSP (symbols, references, refactors). Tools tailored per harness via --context.
