@@ -132,11 +132,24 @@ else
     fail "chezmoi/.chezmoi.toml.tmpl does not have a [data] section"
 fi
 
-# ─── Pass 3: Shell (skip — no zsh module writes needed for dry-run) ───────────────
+# ─── Pass 3: Shell — accept the 'aliases' module from catalog ─────────────────────
 echo "--- Pass 3: shell ---"
-yq -i '.passes[3].answers.modules = []' "$STATE"
+# Read the catalog entry for 'aliases' and stage its asset.
+# entry.files lists the asset paths; entry.entry is the source line to add.
+ALIASES_ENTRY=$(yq '.zsh[] | select(.name == "aliases")' "$DOTSRC/onboard/catalog/zsh.yaml")
+[[ -n "$ALIASES_ENTRY" ]] || fail "Could not read aliases entry from onboard/catalog/zsh.yaml"
+
+# Copy the asset file into place (simulates what the onboarding agent does).
+ASSET_SRC="$DOTSRC/onboard/assets/zsh/aliases.zsh"
+ASSET_DST="$DOTSRC/zsh/aliases.zsh"
+[[ -f "$ASSET_SRC" ]] || fail "aliases.zsh asset not found at $ASSET_SRC"
+cp "$ASSET_SRC" "$ASSET_DST"
+[[ -f "$ASSET_DST" ]] || fail "aliases.zsh not staged to $ASSET_DST"
+
+# Record the module choice in state and mark done.
+yq -i '.passes[3].answers.modules = ["aliases"]' "$STATE"
 pass_done 3
-pass "Pass 3 done (no shell modules — dry-run)"
+pass "Pass 3 done — aliases module staged: asset at $ASSET_DST"
 
 # ─── Pass 4: Packages (skip — no installs in dry-run) ─────────────────────────
 echo "--- Pass 4: packages ---"
@@ -150,12 +163,44 @@ state_set ".secrets_strategy" "skip"
 pass_done 5
 pass "Pass 5 done (secrets strategy: skip)"
 
-# ─── Pass 6: Agent config (skip catalog acceptance — dry-run) ──────────────────
+# ─── Pass 6: Agent config — accept tilth MCP + git-guard-style hook from catalog ──
 echo "--- Pass 6: agent config ---"
-# Simulate accepting zero catalog items (valid minimal run).
 yq -i '.harnesses = ["claude"]' "$STATE"
+
+# Accept the 'tilth' MCP entry (no secrets required) from the catalog.
+# Read the entry block verbatim and append it to the live MCP registry.
+TILTH_ENTRY=$(yq '.mcps[] | select(.name == "tilth") | .entry' "$DOTSRC/onboard/catalog/mcp.yaml")
+[[ -n "$TILTH_ENTRY" ]] || fail "Could not read tilth entry from onboard/catalog/mcp.yaml"
+
+MCP_REGISTRY="$DOTSRC/agents/mcp/registry.yaml"
+# Convert `mcps: {}` to `mcps:` so block entries can be appended.
+sed -i.bak "s/^mcps: {}$/mcps:/" "$MCP_REGISTRY" && rm -f "${MCP_REGISTRY}.bak"
+# Append the indented tilth entry.
+printf '%s' "$TILTH_ENTRY" | awk '{print "  " $0}' >> "$MCP_REGISTRY"
+
+# Verify the registry still parses as valid YAML.
+yq '.' "$MCP_REGISTRY" >/dev/null || fail "agents/mcp/registry.yaml is not valid YAML after accepting tilth MCP"
+# Verify the tilth key is present.
+TILTH_CMD=$(yq '.mcps.tilth.command' "$MCP_REGISTRY")
+[[ "$TILTH_CMD" == "tilth" ]] || fail "tilth MCP not found in registry (got: $TILTH_CMD)"
+
+# Accept the 'moshi' hook entry from the catalog (tests registry-write path;
+# no process is spawned — we only verify the YAML is valid after insert).
+MOSHI_ENTRY=$(yq '.hooks[] | select(.name == "moshi") | .entry' "$DOTSRC/onboard/catalog/hooks.yaml")
+[[ -n "$MOSHI_ENTRY" ]] || fail "Could not read moshi entry from onboard/catalog/hooks.yaml"
+
+HOOK_REGISTRY="$DOTSRC/agents/hooks/registry.yaml"
+printf '%s' "$MOSHI_ENTRY" | awk '{print "  " $0}' >> "$HOOK_REGISTRY"
+
+# Verify the hooks registry still parses.
+yq '.' "$HOOK_REGISTRY" >/dev/null || fail "agents/hooks/registry.yaml is not valid YAML after accepting moshi hook"
+MOSHI_EVENT=$(yq '.hooks["moshi-session-start"].event' "$HOOK_REGISTRY")
+[[ "$MOSHI_EVENT" == "SessionStart" ]] || fail "moshi-session-start not in hooks registry (got: $MOSHI_EVENT)"
+
+yq -i '.passes[6].answers.mcps = ["tilth"]' "$STATE"
+yq -i '.passes[6].answers.hooks = ["moshi"]' "$STATE"
 pass_done 6
-pass "Pass 6 done (no catalog items — dry-run)"
+pass "Pass 6 done — tilth MCP and moshi hook accepted into registries"
 
 # ─── Pass 7: Graduation ──────────────────────────────────────────────────────────────
 echo "--- Pass 7: graduation ---"
@@ -221,6 +266,19 @@ pass ".onboard-archive/ exists"
 # 5. dots help still works (CLI not broken by graduation).
 DOTFILES_DIR="$DOTSRC" bash "$DOTSRC/bin/dots" help >/dev/null 2>&1 || fail "dots help failed after graduation"
 pass "dots help works after graduation"
+
+# 6. Catalog items accepted: aliases asset staged, tilth in MCP registry, moshi in hooks registry.
+[[ -f "$DOTSRC/zsh/aliases.zsh" ]] || fail "aliases.zsh not staged to zsh/aliases.zsh"
+pass "pass 3 catalog: aliases.zsh is staged"
+
+TILTH_CMD=$(yq '.mcps.tilth.command' "$DOTSRC/.onboard-archive/../agents/mcp/registry.yaml" 2>/dev/null || \
+            yq '.mcps.tilth.command' "$DOTSRC/agents/mcp/registry.yaml" 2>/dev/null || true)
+[[ "$TILTH_CMD" == "tilth" ]] || fail "tilth not found in MCP registry after graduation"
+pass "pass 6 catalog: tilth MCP in registry"
+
+MOSHI_EVENT=$(yq '.hooks["moshi-session-start"].event' "$DOTSRC/agents/hooks/registry.yaml" 2>/dev/null || true)
+[[ "$MOSHI_EVENT" == "SessionStart" ]] || fail "moshi-session-start not found in hooks registry after graduation"
+pass "pass 6 catalog: moshi hook in registry"
 
 echo
 echo "=== All e2e assertions passed ==="
