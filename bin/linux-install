@@ -30,11 +30,11 @@ if [[ "$(uname -s)" != "Linux" ]]; then
     exit 1
 fi
 
-# Refuse to run as root. The script calls \`sudo\` itself for apt; running the
-# whole thing under sudo makes \$HOME resolve to /root, so rustup, uv tools,
-# cargo packages, and npm globals all land in the wrong place and aren't on
-# your PATH after.
-if [[ "${EUID}" -eq 0 ]]; then
+# Refuse to run as root via sudo — that makes $HOME resolve to /root, so
+# rustup, uv tools, cargo packages, and npm globals land in the wrong place.
+# Exception: containers run natively as root without sudo installed, which is
+# a legitimate single-user environment. In that case root IS the target user.
+if [[ "${EUID}" -eq 0 ]] && command -v sudo &>/dev/null; then
     err "Run this script as your normal user, NOT with sudo."
     err "It calls sudo itself for the apt portion and prompts for your password."
     err "Re-run: ./bin/linux-install"
@@ -59,6 +59,10 @@ unset _ssl_var _val
 
 mkdir -p "$HOME/.local/bin"
 export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+
+# When running as root (e.g. a container), sudo is a no-op — we already have
+# the required privileges. When not root, prefix privileged commands with sudo.
+_sudo() { [[ "${EUID}" -eq 0 ]] && "$@" || sudo "$@"; }
 
 FAILED=()
 SKIPPED=()
@@ -91,7 +95,7 @@ APT_PKGS=(
 )
 
 log "Installing apt packages (${#APT_PKGS[@]} total)"
-if sudo apt-get update -qq && sudo apt-get install -y "${APT_PKGS[@]}"; then
+if _sudo apt-get update -qq && _sudo apt-get install -y "${APT_PKGS[@]}"; then
     ok "apt packages installed"
 else
     err "apt install failed"
@@ -114,12 +118,12 @@ if [[ -n "$ZSH_PATH" ]]; then
         # but defensively re-add (grep -qx makes it a no-op when present).
         if ! grep -qx "$ZSH_PATH" /etc/shells; then
             log "Adding $ZSH_PATH to /etc/shells"
-            if ! echo "$ZSH_PATH" | sudo tee -a /etc/shells >/dev/null; then
+            if ! echo "$ZSH_PATH" | _sudo tee -a /etc/shells >/dev/null; then
                 warn "Failed to update /etc/shells"
             fi
         fi
         log "Setting login shell to zsh (was: $CURRENT_SHELL)"
-        if sudo chsh -s "$ZSH_PATH" "$USER"; then
+        if _sudo chsh -s "$ZSH_PATH" "$USER"; then
             ok "Login shell set to zsh — takes effect on next login"
             LOGIN_SHELL_CHANGED=1
         else

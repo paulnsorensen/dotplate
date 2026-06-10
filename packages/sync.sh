@@ -529,8 +529,22 @@ sync_apt() {
 
     if ((${#missing[@]})); then
         echo ""
-        log_warning "Missing packages: ${missing[*]}"
-        echo "  sudo apt-get install -y ${missing[*]}"
+        # Install if we have the necessary privileges (root or sudo available).
+        # Otherwise remain advisory-only — the caller must install manually.
+        if [[ "${EUID:-$(id -u)}" -eq 0 ]] || command -v sudo &>/dev/null; then
+            local apt_cmd=(apt-get install -y)
+            [[ "${EUID:-$(id -u)}" -ne 0 ]] && apt_cmd=(sudo apt-get install -y)
+            log_info "Installing missing packages: ${missing[*]}"
+            if "${apt_cmd[@]}" "${missing[@]}"; then
+                log_success "apt packages installed"
+            else
+                log_error "apt install failed"
+                FAILED+=("apt")
+            fi
+        else
+            log_warning "Missing packages: ${missing[*]}"
+            echo "  sudo apt-get install -y ${missing[*]}"
+        fi
     fi
 }
 
