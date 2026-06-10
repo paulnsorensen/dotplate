@@ -14,7 +14,7 @@ read -r cmd <<<"${1:-$(cat)}"
 
 case "$cmd" in
     *"rm -rf "*|*"sudo "*|*"chmod 777"*|*"git push --force"*|*"git reset --hard"*)
-        printf 'cheese-grok: blocked destructive command: %s\n' "$cmd" >&2
+        printf 'repo-hooks: blocked destructive command: %s\n' "$cmd" >&2
         exit 2
         ;;
 esac

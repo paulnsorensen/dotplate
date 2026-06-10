@@ -16,7 +16,7 @@
 #
 # Coexistence rules (mirror chezmoi/lib/install-local.sh):
 #   - Each deploy target tracks ownership via a per-dir
-#     <target>/.dotfiles-managed-cheese-grok manifest. The manifest
+#     <target>/.dotfiles-managed-<plugin-name> manifest. The manifest
 #     stem matches the plugin name so multiple plugins can coexist
 #     without trampling each other's items.
 #   - Items dropped from the plugin source are removed from the target

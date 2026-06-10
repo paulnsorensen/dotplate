@@ -68,7 +68,7 @@ is_sensitive() {
 }
 
 deny() {
-    printf 'cheese-grok: blocked access to sensitive file: %s\n' "$1" >&2
+    printf 'repo-hooks: blocked access to sensitive file: %s\n' "$1" >&2
     exit 2
 }
 

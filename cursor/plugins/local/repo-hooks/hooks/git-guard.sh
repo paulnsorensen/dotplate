@@ -30,7 +30,7 @@ esac
 command -v node >/dev/null 2>&1 || exit 0
 command -v jq   >/dev/null 2>&1 || exit 0
 
-LOGIC="${DOTFILES_DIR:-$HOME/Dev/dotfiles}/agents/lib/git-guard.js"
+LOGIC="${DOTFILES_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.."; pwd)}/agents/lib/git-guard.js"
 [[ -f "$LOGIC" ]] || exit 0
 
 payload="$(cat)"
@@ -48,7 +48,7 @@ reason="$(GIT_GUARD_COMMAND="$command_line" GIT_GUARD_CWD="$cwd" node -e 'requir
 rc=$?
 
 if (( rc == 7 )); then
-    printf 'cheese-grok: %s\n' "$reason" >&2
+    printf 'repo-hooks: %s\n' "$reason" >&2
     exit 2
 fi
 
