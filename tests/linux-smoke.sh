@@ -9,6 +9,8 @@
 #   2. bin/linux-install root guard correctly bypassed (no sudo in container)
 #   3. dots help works (CLI machinery is not broken)
 #   4. e2e-onboarding-dry-run.sh passes on Linux
+#   5. bin/linux-install root guard refuses root+sudo (runs last; sudo is
+#      uninstallable once present — its prerm refuses removal)
 #
 # Exit 0 = pass, exit 1 = fail, exit 2 = skipped.
 
@@ -75,28 +77,14 @@ yq --version
 echo "--- Test: packages/sync.sh as root ---"
 FORCE_PACKAGES=true DOTFILES_DIR=/dotplate bash /dotplate/packages/sync.sh && echo "PASS: sync.sh exited 0" || fail "sync.sh non-zero exit"
 
-# 4. Test: bin/linux-install root guard refusal (sudo installed as root → exit 1)
-echo "--- Test: bin/linux-install root guard with sudo → must refuse ---"
-apt-get install -y --no-install-recommends sudo >/dev/null 2>&1
-refusal_output=$(bash /dotplate/bin/linux-install 2>&1 || true)
-refusal_exit=$?
-[[ "$refusal_exit" -eq 1 ]] \
-    || fail "Expected exit 1 from linux-install as root+sudo, got $refusal_exit"
-echo "$refusal_output" | grep -qi "sudo" \
-    || fail "Expected refusal message mentioning sudo; got: $refusal_output"
-echo "PASS: linux-install exits 1 with refusal message when run as root+sudo"
-
-# Now remove sudo so the next pass (bypass check) works correctly.
-apt-get remove -y --purge sudo >/dev/null 2>&1
-
-# 4b. Verify root guard is bypassed when sudo is NOT installed.
+# 4. Verify root guard is bypassed when sudo is NOT installed.
 # (EUID=0 without sudo = legitimate container root; linux-install should proceed.)
-# We can verify the guard logic is correct without fully running linux-install
-# (which would need network access and all toolchains).
+# ubuntu:24.04 ships without sudo, so this must run BEFORE the refusal-arm test
+# installs it (sudo's prerm script refuses removal, so it cannot be uninstalled).
 echo "--- Test: bin/linux-install root guard bypassed (root, no sudo) ---"
 bash -n /dotplate/bin/linux-install && echo "PASS: linux-install parses OK"
 if [[ "${EUID}" -eq 0 ]] && command -v sudo &>/dev/null; then
-    fail "root guard would refuse (sudo still installed as root)"
+    fail "root guard would refuse (sudo unexpectedly installed)"
 else
     echo "PASS: root guard correctly bypassed (EUID=0 but no sudo installed)"
 fi
@@ -111,6 +99,19 @@ echo "--- Test: e2e-onboarding-dry-run ---"
 # PATH already includes /root/.local/bin (yq) and /root/.local/bin (uv) from sync.sh bootstrap.
 export PATH="/root/.local/bin:$PATH"
 bash /dotplate/tests/e2e-onboarding-dry-run.sh && echo "PASS: e2e-onboarding-dry-run passed" || fail "e2e-onboarding-dry-run failed"
+
+# 7. Test: bin/linux-install root guard refusal (sudo installed as root → exit 1).
+# Runs LAST: sudo cannot be removed once installed (its prerm refuses), and a
+# present sudo would flip the guard for any earlier step that runs linux-install.
+echo "--- Test: bin/linux-install root guard with sudo → must refuse ---"
+apt-get install -y --no-install-recommends sudo >/dev/null 2>&1
+refusal_exit=0
+refusal_output=$(bash /dotplate/bin/linux-install 2>&1) || refusal_exit=$?
+[[ "$refusal_exit" -eq 1 ]] \
+    || fail "Expected exit 1 from linux-install as root+sudo, got $refusal_exit"
+echo "$refusal_output" | grep -qi "sudo" \
+    || fail "Expected refusal message mentioning sudo; got: $refusal_output"
+echo "PASS: linux-install exits 1 with refusal message when run as root+sudo"
 
 echo
 echo "=== All smoke tests passed ==="
