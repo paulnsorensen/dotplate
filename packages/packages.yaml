@@ -30,15 +30,15 @@
 
 packages:
   # Machinery requirements
-  - chezmoi
+  - chezmoi: { platform: mac }              # on Linux: bootstrapped via curl https://get.chezmoi.io (in chezmoi/.sync)
   - yq
   - jq
   - git
   - bats-core: { apt: bats }                  # bats test runner; brew formula is bats-core, apt pkg is bats
-  - uv
+  - uv: { platform: mac }                    # on Linux: bootstrapped via curl https://astral.sh/uv/install.sh (in packages/sync.sh)
   - shellcheck
   - just
-  - prek
+  - prek: { source: uv }                     # PyPI package; installed via `uv tool install prek`
 
   # Linters (needed by justfile lint targets)
   - markdownlint-cli2: { source: npm }
