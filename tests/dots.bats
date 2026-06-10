@@ -186,3 +186,17 @@ STUB
     assert_success
     assert_output_contains "Dotfiles Health Check"
 }
+
+@test "cc-env-exec loads .env from repo root derived from script location" {
+    # WHY: DOTFILES_DIR:-$HOME/Dev/dotfiles was the old hardcoded fallback.
+    # The fix derives root from the script's own location via readlink-loop.
+    # Without DOTFILES_DIR set, cc-env-exec must find a .env beside the repo root.
+    local clone_dir="$TEST_HOME/cc-env-clone"
+    mkdir -p "$clone_dir/bin"
+    cp "$REAL_DOTFILES_DIR/bin/cc-env-exec" "$clone_dir/bin/cc-env-exec"
+    printf 'CC_ENV_TEST_VAR=hello_from_derived_root\n' > "$clone_dir/.env"
+
+    run env -u DOTFILES_DIR bash "$clone_dir/bin/cc-env-exec" bash -c 'echo $CC_ENV_TEST_VAR'
+    assert_success
+    assert_output_contains "hello_from_derived_root"
+}

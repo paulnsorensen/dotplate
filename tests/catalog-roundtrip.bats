@@ -334,3 +334,53 @@ append_entry_to_registry() {
         done
     done
 }
+
+# ─── null-entry rejection ────────────────────────────────────────────────────────────
+
+@test "catalog entry with null entry field produces detectable corruption, not silent append" {
+    # WHY: when a catalog item's `entry` is null/missing, yq returns the string
+    # "null". Appending that literal to a registry produces a document with a
+    # bare 'null' scalar under the top-level key, which breaks any subsequent
+    # yq query that expects a mapping. This test asserts the corruption is
+    # detectable (the registry loses its mapping structure) so a walker can
+    # check `[[ "$entry" == "null" || -z "$entry" ]]` and skip/fail rather
+    # than silently poisoning the registry.
+    local tmp_catalog tmp_out
+    tmp_catalog=$(mktemp)
+    tmp_out=$(mktemp)
+
+    # Synthetic malformed catalog: entry is explicitly null.
+    cat > "$tmp_catalog" <<'YAML'
+mcps:
+  - name: broken-null-entry
+    pitch: This entry has no content
+    entry: null
+YAML
+
+    # yq must return 'null' for a null entry field.
+    local entry
+    entry=$(yq '.mcps[0].entry' "$tmp_catalog")
+    [[ "$entry" == "null" ]] || {
+        rm -f "$tmp_catalog" "$tmp_out"
+        echo "FAIL: expected yq to return 'null' for null entry field, got: $entry" >&2
+        return 1
+    }
+
+    # Appending 'null' (the string) to a registry breaks the mapping structure:
+    # the mcps key's value becomes a bare 'null' scalar, so
+    # `yq '.mcps | type'` is no longer 'map'.
+    cp "$REPO_ROOT/agents/mcp/registry.yaml" "$tmp_out"
+    sed 's/^mcps: {}$/mcps:/' "$tmp_out" > "$tmp_out.mod" && mv "$tmp_out.mod" "$tmp_out"
+    printf '  null\n' >> "$tmp_out"
+    local mcps_type
+    mcps_type=$(yq '.mcps | type' "$tmp_out" 2>/dev/null || echo 'error')
+    # After appending 'null', the mcps type must NOT be '!!map' — confirming
+    # that a null entry corrupts the registry in a detectable way.
+    [[ "$mcps_type" == '!!map' ]] && {
+        rm -f "$tmp_catalog" "$tmp_out"
+        echo "FAIL: expected registry to be corrupted by null append (mcps should lose map type)" >&2
+        return 1
+    }
+
+    rm -f "$tmp_catalog" "$tmp_out"
+}

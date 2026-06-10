@@ -649,10 +649,11 @@ YAML
     assert_file_exists "$REAL_DOTFILES_DIR/chezmoi/.gitattributes"
 }
 
-@test ".chezmoi.toml.tmpl prompts for name, email and persists sourceDir" {
+@test ".chezmoi.toml.tmpl prompts for name, email, editor and persists sourceDir" {
     local toml="$REAL_DOTFILES_DIR/chezmoi/.chezmoi.toml.tmpl"
     grep -q 'promptStringOnce . "name"' "$toml"
     grep -q 'promptStringOnce . "email"' "$toml"
+    grep -q 'promptStringOnce . "editor"' "$toml"
     grep -q '\.chezmoi\.sourceDir' "$toml"
     # The work-machine prompt was removed with the employer git machinery;
     # per-repo email is native git (`git config user.email`). Guard the
@@ -668,10 +669,12 @@ YAML
     grep -qE 'localLLM = \{\{ promptBoolOnce \. "localLLM"' "$toml"
 }
 
-@test "gitconfig template references .name and .email, carries no personal hardcodes" {
+@test "gitconfig template references .name, .email, .editor, carries no personal hardcodes" {
     local tmpl="$REAL_DOTFILES_DIR/chezmoi/private_dot_gitconfig.tmpl"
     grep -q 'name = {{ .name }}' "$tmpl"
     grep -q 'email = {{ .email }}' "$tmpl"
+    # core.editor must be driven by the chezmoi data key so dots sync wires it.
+    grep -q 'editor = {{ .editor }}' "$tmpl"
     # Public-repo guard: the template must carry no work gate and no
     # internal/employer hostname or address. Per-repo email is native git
     # (`git config user.email`), so no `.work`-gated block is needed.
@@ -794,6 +797,8 @@ sourceDir = "$REAL_DOTFILES_DIR/chezmoi"
 [data]
 name = "Test User"
 email = "test@example.com"
+localLLM = false
+editor = "vim"
 TOML
     export CONTEXT7_API_KEY="test-context7-key"
     export TAVILY_API_KEY="test-tavily-key"
@@ -891,6 +896,8 @@ sourceDir = "$REAL_DOTFILES_DIR/chezmoi"
 [data]
 name = "Test User"
 email = "test@example.com"
+localLLM = false
+editor = "vim"
 TOML
     export CONTEXT7_API_KEY="test-context7-key"
     export TAVILY_API_KEY="test-tavily-key"
