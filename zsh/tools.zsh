@@ -43,5 +43,3 @@ if command -v sccache &>/dev/null; then
     export CARGO_INCREMENTAL=0
 fi
 
-# ─── vaudeville (SLM hook enforcement for Claude Code) ───────────────────
-export VAUDEVILLE_DEBUG="${VAUDEVILLE_DEBUG:-0}"

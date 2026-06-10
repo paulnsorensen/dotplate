@@ -241,13 +241,9 @@ do_doctor() {
     if [[ -f .git/hooks/pre-commit ]] && grep -q prek .git/hooks/pre-commit 2>/dev/null; then
         echo -e "  ${GREEN}✓ prek hooks installed${NC}"
     elif command -v prek &>/dev/null; then
-        echo -e "  ${YELLOW}⚠ prek hooks not installed${NC}"
-        echo -e "    Run: ${GREEN}prek install${NC}"
-        issues=$((issues + 1))
+        echo -e "  ${YELLOW}⚠ prek hooks not installed (run: prek install)${NC}"
     else
-        echo -e "  ${RED}✗ prek not found${NC}"
-        echo -e "    Run: ${GREEN}brew install prek${NC}"
-        issues=$((issues + 1))
+        echo -e "  ${YELLOW}⚠ prek not found (optional; install with: brew install prek)${NC}"
     fi
 
     # Check for required commands
@@ -281,18 +277,6 @@ do_doctor() {
         echo -e "    Run: ${GREEN}dots sync${NC}"
         issues=$((issues + 1))
     fi
-
-    # Check VS Code settings if they exist
-    if [[ -d "$DOTFILES_DIR/vscode" ]]; then
-        echo -e "${BLUE}Checking VS Code configuration...${NC}"
-        if [[ -L "$HOME/Library/Application Support/Code/User/settings.json" ]]; then
-            echo -e "  ${GREEN}✓ VS Code settings symlinked${NC}"
-        else
-            echo -e "  ${YELLOW}⚠ VS Code settings not symlinked${NC}"
-            echo -e "    Run: ${GREEN}cd $DOTFILES_DIR/vscode && ./.sync${NC}"
-        fi
-    fi
-
     # Profile shell startup
     echo -e "${BLUE}Profiling shell startup...${NC}"
     local times=()

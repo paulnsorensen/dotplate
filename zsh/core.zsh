@@ -6,9 +6,9 @@
 if [[ -z "${DOTFILES_DIR:-}" ]]; then
     export DOTFILES_DIR="${${(%):-%x}:A:h:h}"
     # Fallback for shells where the above expansion doesn't resolve
-    [[ -d "$DOTFILES_DIR" ]] || export DOTFILES_DIR="$HOME/Dev/dotplate"
+    [[ -d "$DOTFILES_DIR" ]] || export DOTFILES_DIR="$HOME/dotfiles"
 fi
-export DEV_DIR="$HOME/Dev"
+export DEV_DIR="$HOME/Dev"  # convention — edit to taste
 
 # PATH configuration (matching zshrc)
 if [[ $OSTYPE == darwin* ]]; then
@@ -32,7 +32,7 @@ export PATH="$HOME/.local/bin:$PATH"
 [[ -d "$HOME/.cargo/bin" ]] && export PATH="$HOME/.cargo/bin:$PATH"
 
 # prek cache/logs — persistent location writable by Claude sandbox
-export PREK_HOME="$HOME/Dev/.prek"
+export PREK_HOME="${DOTFILES_DIR}/.prek"
 
 # Editor configuration
 export EDITOR="$(which vim)"

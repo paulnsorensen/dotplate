@@ -17,7 +17,6 @@ DOTFILES="${1:-$(cd "${0%/*}/.." && pwd)}"
 SKILLS_DIR="${DOTFILES}/skills"
 MCP_REGISTRY="${DOTFILES}/agents/mcp/registry.yaml"
 PLUGIN_REGISTRY="${DOTFILES}/claude/plugins/registry.yaml"
-SETTINGS_JSON="${DOTFILES}/claude/settings.json"
 PLUGIN_CACHE="${HOME}/.claude/plugins/cache"
 
 perms=()
@@ -99,11 +98,6 @@ if [[ -f "${PLUGIN_REGISTRY}" ]]; then
     done < <(yq -r '.plugins | keys[]' "${PLUGIN_REGISTRY}")
 fi
 
-if [[ -f "${SETTINGS_JSON}" ]]; then
-    while IFS= read -r entry; do
-        [[ -n "${entry}" ]] && perms+=("${entry}")
-    done < <(jq -r '.permissions.allow[]? | select(startswith("mcp__claude_ai_"))' "${SETTINGS_JSON}")
-fi
 jq -n \
     --argjson sandbox '{"enabled":true,"autoAllowBashIfSandboxed":true}' \
     --args \
