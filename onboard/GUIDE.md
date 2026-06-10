@@ -222,8 +222,16 @@ and let the user decide.
 Read `onboard/catalog/zsh.yaml`. For each entry:
 
 1. Present the `pitch` (and explain more if `comfort == beginner`).
-2. Ask: “Would you like to include this?”
-3. On acceptance, add the module to the zsh loader (`zshrc` or the relevant
+2. Ask: "Would you like to include this?"
+3. On acceptance, fetch the entry block via:
+
+   ```bash
+   bash onboard/lib/catalog.sh entry onboard/catalog/zsh.yaml zsh <index>
+   ```
+
+   The helper exits 1 loud when the entry field is null or missing —
+   never apply a null entry silently.
+4. Add the printed entry text to the zsh loader (`zshrc` or the relevant
    include mechanism).
 
 ### vi-mode is an explicit opt-in
@@ -277,9 +285,15 @@ For each entry:
 
 1. Present the name and `pitch` (and explain more if `comfort == beginner`).
 2. Ask: "Would you like to apply this?"
-3. On acceptance, follow the `entry` block instructions to deploy the asset
-   to the appropriate location (LaunchAgent, `~/.config/...`, etc.).
+3. On acceptance, fetch the entry block via:
 
+   ```bash
+   bash onboard/lib/catalog.sh entry onboard/catalog/mac-extras.yaml mac-extras <index>
+   ```
+
+   The helper exits 1 loud on a null entry — never apply silently.
+4. Follow the printed entry instructions to deploy the asset to the
+   appropriate location (LaunchAgent, `~/.config/...`, etc.).
 All `mac-extras` items have `os: macos` — skip silently on Linux.
 
 ### Materialize → `dots sync` → verify
