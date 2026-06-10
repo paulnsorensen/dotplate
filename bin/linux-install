@@ -230,6 +230,7 @@ fi
 #-----------------------------------------------------------------------------
 if ! command -v bun &>/dev/null; then
     log "Installing bun"
+    # accepted-risk: canonical upstream install method; no stable checksum URL published by bun.sh
     if ! curl -fsSL https://bun.sh/install | bash; then
         err "bun install failed"
         FAILED+=("bun")
@@ -243,6 +244,7 @@ fi
 #-----------------------------------------------------------------------------
 if ! command -v duckdb &>/dev/null; then
     log "Installing duckdb"
+    # accepted-risk: canonical upstream install method; no stable checksum URL published by duckdb.org
     if ! curl -fsSL https://install.duckdb.org | sh; then
         err "duckdb install failed"
         FAILED+=("duckdb")

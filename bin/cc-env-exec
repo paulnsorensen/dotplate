@@ -16,7 +16,16 @@ if (( $# == 0 )); then
     exit 2
 fi
 
-env_file="${DOTFILES_DIR:-$HOME/Dev/dotfiles}/.env"
+_cc_src="${BASH_SOURCE[0]}"
+while [[ -L "$_cc_src" ]]; do
+    _cc_dir="$(cd "$(dirname "$_cc_src")" && pwd)"
+    _cc_src="$(readlink "$_cc_src")"
+    [[ "$_cc_src" != /* ]] && _cc_src="$_cc_dir/$_cc_src"
+done
+_cc_repo="$(cd "$(dirname "$_cc_src")/.." && pwd)"
+unset _cc_src _cc_dir
+env_file="${DOTFILES_DIR:-$_cc_repo}/.env"
+unset _cc_repo
 if [[ -f "$env_file" ]]; then
     while IFS= read -r line; do
         [[ "$line" =~ ^[[:space:]]*$ || "$line" =~ ^[[:space:]]*# ]] && continue

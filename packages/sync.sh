@@ -559,19 +559,32 @@ sync_apt() {
 bootstrap_yq_linux() {
     local dest="$HOME/.local/bin/yq"
     local arch
+    # Pinned release — update YQ_VERSION + sha256 together when upgrading.
+    local YQ_VERSION="v4.53.3"
+    local sha256_amd64="fa52a4e758c63d38299163fbdd1edfb4c4963247918bf9c1c5d31d84789eded4"
+    local sha256_arm64="578648e463a11c1b6db6010cbf41eafed6bee79466fcffa1bb446672cf7945ea"
+    local expected_sha256
     case "$(uname -m)" in
-        x86_64)  arch=amd64 ;;
-        aarch64) arch=arm64 ;;
+        x86_64)  arch=amd64; expected_sha256="$sha256_amd64" ;;
+        aarch64) arch=arm64; expected_sha256="$sha256_arm64" ;;
         *)
             log_error "Unsupported architecture for yq bootstrap: $(uname -m)"
             return 1
             ;;
     esac
+    local url="https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_${arch}"
     mkdir -p "$HOME/.local/bin"
-    local url="https://github.com/mikefarah/yq/releases/latest/download/yq_linux_${arch}"
-    log_info "Downloading Mike Farah yq → $dest"
+    log_info "Downloading Mike Farah yq ${YQ_VERSION} → $dest"
     if ! curl -fsSL "$url" -o "$dest.tmp"; then
         log_error "Failed to download yq from $url"
+        rm -f "$dest.tmp"
+        return 1
+    fi
+    # Verify sha256 before making executable.
+    local actual_sha256
+    actual_sha256=$(sha256sum "$dest.tmp" | awk '{print $1}')
+    if [[ "$actual_sha256" != "$expected_sha256" ]]; then
+        log_error "yq sha256 mismatch: expected $expected_sha256, got $actual_sha256"
         rm -f "$dest.tmp"
         return 1
     fi

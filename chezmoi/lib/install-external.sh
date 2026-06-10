@@ -56,6 +56,9 @@ if [[ -f "$DOTFILES_DIR/.env" ]]; then
     while IFS='=' read -r key val; do
         key="${key#export }"
         [[ -z "$key" || "$key" =~ ^# ]] && continue
+        # Reject malformed keys before export — a bad line under set -e kills the
+        # installer; an identifier guard skips it safely instead.
+        [[ "$key" =~ ^[a-zA-Z_][a-zA-Z0-9_]*$ ]] || continue
         # Strip surrounding quotes from value (env loader is naive)
         val="${val%\"}"
         val="${val#\"}"
