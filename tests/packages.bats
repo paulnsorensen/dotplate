@@ -704,3 +704,223 @@ MOCKCARGO
     grep -q "cargo install cargo-llvm-cov" "$CARGO_LOG"
     ! grep -q "cargo install --force cargo-llvm-cov" "$CARGO_LOG"
 }
+
+# ─── APT branch: sync_apt EUID/sudo selection ────────────────────────────────
+#
+# WHY: sync_apt chooses apt_cmd based on EUID and sudo availability:
+#   EUID==0             → bare apt-get install
+#   EUID!=0 + sudo      → sudo apt-get install
+#   EUID!=0 + no sudo   → advisory message only (no apt-get)
+#
+# We can test the two non-root arms on any platform by:
+#   - Stubbing uname to return Linux (so sync.sh sets PLATFORM=Linux)
+#   - Stubbing apt-get, dpkg, dpkg-query (so sync_apt fires and logs invocations)
+#   - Stubbing uv, cargo, npm, gh (so non-apt phases are no-ops)
+#   - Using EUID of the current user (non-root, always true in test runs)
+# The root arm (EUID==0) is untestable without a production change because
+# EUID is read-only in bash and the ${EUID:-...} idiom never uses the fallback
+# when running in bash (EUID is always set). Covered by tests/linux-smoke.sh.
+
+write_mock_dpkg() {
+    # dpkg -s reports all packages as not installed, so they land in missing[].
+    cat > "$MOCK_BIN/dpkg" << 'MOCKDPKG'
+#!/bin/bash
+exit 1
+MOCKDPKG
+    # dpkg-query -W is also used by some scripts; same behavior
+    cat > "$MOCK_BIN/dpkg-query" << 'MOCKDPKGQ'
+#!/bin/bash
+exit 1
+MOCKDPKGQ
+    chmod +x "$MOCK_BIN/dpkg" "$MOCK_BIN/dpkg-query"
+}
+
+write_mock_apt() {
+    local log="$1"
+    cat > "$MOCK_BIN/apt-get" << MOCKAPT
+#!/bin/bash
+echo "apt-get \$*" >> "$log"
+exit 0
+MOCKAPT
+    chmod +x "$MOCK_BIN/apt-get"
+}
+
+write_mock_uv() {
+    cat > "$MOCK_BIN/uv" << 'MOCKUV'
+#!/bin/bash
+if [[ "$1" == "tool" && "$2" == "list" ]]; then echo ""; fi
+exit 0
+MOCKUV
+    chmod +x "$MOCK_BIN/uv"
+}
+
+write_mock_uname_linux() {
+    cat > "$MOCK_BIN/uname" << 'MOCKUNAME'
+#!/bin/bash
+if [[ "${1:-}" == "-m" ]]; then echo "x86_64"; else echo "Linux"; fi
+MOCKUNAME
+    chmod +x "$MOCK_BIN/uname"
+}
+
+write_linux_test_yaml() {
+    cat > "$PACKAGES_FILE" << 'YAML'
+packages:
+  - curl
+  - git
+  - fd: { apt: fd-find }
+YAML
+}
+
+run_sync_linux() {
+    FORCE_PACKAGES=true \
+        PATH="$MOCK_BIN:$PATH" \
+        run bash "$SYNC_SCRIPT"
+}
+
+@test "sync_apt uses 'sudo apt-get install' when non-root and sudo is present" {
+    # sync_apt uses local -n (nameref) which requires bash 4.3+. macOS ships
+    # bash 3.2, so these tests only run under Linux where bash >= 4.3.
+    [[ "$(uname)" == "Linux" ]] || skip "apt branch tests require bash 4.3+ (Linux only)"
+    local apt_log="$TEST_HOME/apt.log"
+    write_mock_dpkg
+    write_mock_apt "$apt_log"
+    write_mock_uv
+    write_mock_uname_linux
+    # sudo stub: record argv and execute remaining args (apt-get install ...)
+    cat > "$MOCK_BIN/sudo" << MOCKSUDO
+#!/bin/bash
+echo "sudo \$*" >> "$apt_log"
+exit 0
+MOCKSUDO
+    chmod +x "$MOCK_BIN/sudo"
+    write_linux_test_yaml
+    run_sync_linux
+    assert_success
+    # sudo apt-get install must appear; bare apt-get install must not
+    grep -q "sudo apt-get install -y" "$apt_log" \
+        || { echo "Expected 'sudo apt-get install -y' in $apt_log:"; cat "$apt_log"; return 1; }
+    ! grep -q "^apt-get install" "$apt_log" \
+        || { echo "Bare 'apt-get install' must not appear when non-root+sudo"; return 1; }
+}
+
+@test "sync_apt prints advisory and skips apt-get when non-root and no sudo" {
+    [[ "$(uname)" == "Linux" ]] || skip "apt branch tests require bash 4.3+ (Linux only)"
+    local apt_log="$TEST_HOME/apt.log"
+    write_mock_dpkg
+    write_mock_apt "$apt_log"
+    write_mock_uv
+    write_mock_uname_linux
+    # No sudo in MOCK_BIN — command -v sudo will fail in the stubbed PATH
+    rm -f "$MOCK_BIN/sudo"
+    write_linux_test_yaml
+    # Build a PATH that has MOCK_BIN plus essential tools but no /usr/bin or /bin
+    # (which is where sudo lives on Linux). Keep shasum/sha256sum, yq, git, awk, etc.
+    local clean_path
+    clean_path=$(echo "$PATH" | tr ':' '\n' \
+        | grep -v 'sudo' \
+        | awk '!/^\/usr\/bin$/ && !/^\/bin$/' \
+        | tr '\n' ':' | sed 's/:$//')
+    FORCE_PACKAGES=true \
+        PATH="$MOCK_BIN:$clean_path" \
+        run bash "$SYNC_SCRIPT"
+    assert_success
+    # No apt-get must be invoked (advisory path)
+    [[ ! -f "$apt_log" ]] || [[ ! -s "$apt_log" ]] \
+        || { echo "apt-get must not be called in advisory mode; got:"; cat "$apt_log"; return 1; }
+    # Must print advisory message
+    assert_output_contains "sudo apt-get install"
+}
+
+# Item 8: sync_apt with zero linux entries → exit 0, no apt-get call
+@test "sync_apt with empty linux package list exits 0 and does not invoke apt-get" {
+    local apt_log="$TEST_HOME/apt.log"
+    write_mock_dpkg
+    write_mock_apt "$apt_log"
+    write_mock_uv
+    write_mock_uname_linux
+    # packages.yaml with no linux-targeted entries
+    cat > "$PACKAGES_FILE" << 'YAML'
+packages:
+  - docker-desktop: { source: cask, platform: mac }
+YAML
+    run_sync_linux
+    assert_success
+    # apt-get must not be invoked when there are no linux packages
+    [[ ! -f "$apt_log" ]] || [[ ! -s "$apt_log" ]] \
+        || { echo "apt-get must not be called with empty linux package list; got:"; cat "$apt_log"; return 1; }
+}
+
+# ─── Item 4: prek-via-uv (bin/linux-install) ─────────────────────────────────
+#
+# WHY: bin/linux-install is the sole installer of prek via 'uv tool install prek'.
+# A rename or argument change would silently skip prek for every new Linux user.
+# Locking the exact argv guards that.
+
+@test "linux-install invokes 'uv tool install prek' when uv is present and prek is not" {
+    # linux-install uses local -n (bash 4.3+) and is Linux-specific.
+    [[ "$(uname)" == "Linux" ]] || skip "linux-install tests require Linux"
+
+    local li_script="$REAL_DOTFILES_DIR/bin/linux-install"
+    local uv_log="$TEST_HOME/uv-li.log"
+    local li_bin="$TEST_HOME/li-bin"
+    mkdir -p "$li_bin"
+
+    # --- Stubs: everything linux-install touches before and after the uv section ---
+
+    # uname -> Linux
+    printf '%s\n' '#!/bin/bash' 'case "${1:-}" in -s) echo Linux;; -m) echo x86_64;; *) echo Linux;; esac' \
+        > "$li_bin/uname" && chmod +x "$li_bin/uname"
+
+    # apt-get + sudo: apt step must succeed so execution continues.
+    printf '%s\n' '#!/bin/bash' 'exit 0' > "$li_bin/apt-get" && chmod +x "$li_bin/apt-get"
+    printf '%s\n' '#!/bin/bash' '"$@"'  > "$li_bin/sudo"   && chmod +x "$li_bin/sudo"
+
+    # zsh: present (skips chsh block).
+    printf '%s\n' '#!/bin/bash' 'exit 0' > "$li_bin/zsh"    && chmod +x "$li_bin/zsh"
+
+    # getent: returns /bin/bash as current shell (so chsh fires, but chsh stub exits 0).
+    printf '%s\n' '#!/bin/bash' 'echo "testuser:x:1000:1000::/home/testuser:/bin/bash"' \
+        > "$li_bin/getent" && chmod +x "$li_bin/getent"
+    printf '%s\n' '#!/bin/bash' 'exit 0' > "$li_bin/chsh"   && chmod +x "$li_bin/chsh"
+    printf '%s\n' '#!/bin/bash' 'exit 0' > "$li_bin/tee"    && chmod +x "$li_bin/tee"
+
+    # rustup + rust-analyzer component: present (skips curl-install of rustup).
+    printf '%s\n' '#!/bin/bash' 'exit 0' > "$li_bin/rustup" && chmod +x "$li_bin/rustup"
+
+    # cargo: present; all binary checks pass via stub binaries.
+    printf '%s\n' '#!/bin/bash' 'exit 0' > "$li_bin/cargo"  && chmod +x "$li_bin/cargo"
+
+    # Stub all cargo-installed binaries so install loop is skipped.
+    for b in btm dust yazi difftastic mergiraf tinty cargo-nextest cargo-install-update ast-grep; do
+        printf '%s\n' '#!/bin/bash' 'exit 0' > "$li_bin/$b" && chmod +x "$li_bin/$b"
+    done
+
+    # uv: present; logs argv so we can assert the exact call.
+    printf '%s\n' '#!/bin/bash' "echo \"uv \$*\" >> \"$uv_log\"" 'exit 0' \
+        > "$li_bin/uv" && chmod +x "$li_bin/uv"
+    # prek: NOT present — forces the 'uv tool install prek' branch.
+
+    # bun, duckdb: present (skipped).
+    printf '%s\n' '#!/bin/bash' 'exit 0' > "$li_bin/bun"    && chmod +x "$li_bin/bun"
+    printf '%s\n' '#!/bin/bash' 'exit 0' > "$li_bin/duckdb" && chmod +x "$li_bin/duckdb"
+
+    # npm: present, npm ls -g returns empty, installs succeed.
+    printf '%s\n' '#!/bin/bash' '[[ "${1:-}" == ls ]] && echo "" || exit 0' \
+        > "$li_bin/npm" && chmod +x "$li_bin/npm"
+
+    # curl: present but does nothing (bun/duckdb stubs already cover skips).
+    printf '%s\n' '#!/bin/bash' 'exit 0' > "$li_bin/curl"   && chmod +x "$li_bin/curl"
+
+    # gh: present and skipped.
+    printf '%s\n' '#!/bin/bash' 'exit 0' > "$li_bin/gh"     && chmod +x "$li_bin/gh"
+
+    # Run linux-install in a sandboxed HOME with all stubs first on PATH.
+    HOME="$TEST_HOME" PATH="$li_bin:$PATH" run bash "$li_script"
+    # Script should exit 0 (all steps succeed)
+    assert_success
+
+    # Assert exact argv: 'uv tool install prek'
+    [[ -f "$uv_log" ]] || { echo "uv was never called (uv_log missing)"; return 1; }
+    grep -q "uv tool install prek" "$uv_log" \
+        || { echo "Expected 'uv tool install prek' in uv log:"; cat "$uv_log"; return 1; }
+}

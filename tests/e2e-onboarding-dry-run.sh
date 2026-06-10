@@ -267,6 +267,10 @@ pass ".onboard-archive/ exists"
 DOTFILES_DIR="$DOTSRC" bash "$DOTSRC/bin/dots" help >/dev/null 2>&1 || fail "dots help failed after graduation"
 pass "dots help works after graduation"
 
+# 5b. dots doctor passes (spec criterion 7: doctor green post-graduation).
+DOTFILES_DIR="$DOTSRC" bash "$DOTSRC/bin/dots" doctor >/dev/null 2>&1 || fail "dots doctor failed after graduation"
+pass "dots doctor passes after graduation"
+
 # 6. Catalog items accepted: aliases asset staged, tilth in MCP registry, moshi in hooks registry.
 [[ -f "$DOTSRC/zsh/aliases.zsh" ]] || fail "aliases.zsh not staged to zsh/aliases.zsh"
 pass "pass 3 catalog: aliases.zsh is staged"

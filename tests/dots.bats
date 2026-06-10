@@ -165,3 +165,24 @@ STUB
     assert_success
     assert_output_contains "Usage: dots [command] [args]"
 }
+
+@test "dots resolves repo correctly when invoked via symlink" {
+    # WHY: dots is commonly installed as ~/.local/bin/dots -> <repo>/bin/dots.
+    # If BASH_SOURCE resolution doesn't dereference the symlink, DOTFILES_DIR
+    # resolves to the symlink's directory parent (~/.local) not the repo.
+    local symlink_dir="$TEST_HOME/symlinked-bin"
+    mkdir -p "$symlink_dir"
+    ln -sf "$REAL_DOTFILES_DIR/bin/dots" "$symlink_dir/dots"
+
+    # Invoke via the symlink with DOTFILES_DIR unset.
+    run env -u DOTFILES_DIR bash "$symlink_dir/dots" help
+    assert_success
+    assert_output_contains "Usage: dots [command] [args]"
+
+    # Verify the repo was found: DOTFILES_DIR should point at the real repo, not
+    # at symlink_dir's parent.  We assert that 'dots doctor' succeeds, which
+    # requires the real repo tree (packages/, bin/, etc.) to be reachable.
+    run env -u DOTFILES_DIR bash "$symlink_dir/dots" doctor
+    assert_success
+    assert_output_contains "Dotfiles Health Check"
+}

@@ -291,3 +291,33 @@ REPO_ROOT="$(cd "$(dirname "${BATS_TEST_FILENAME:-${BASH_SOURCE[0]:-$0}}")/.."; 
     rm -f "$tmp_state"
     [[ "$result" == "done" ]]
 }
+
+# ── state.sh boundary tests (Item 6) ────────────────────────────────────────
+
+@test "state.sh next exits 1 when missing state file" {
+    # Missing file must fail loud so the guide agent gets an unambiguous error.
+    run bash "$REPO_ROOT/onboard/lib/state.sh" next "/nonexistent/path/state.yaml"
+    [[ "$status" -eq 1 ]]
+    [[ "$output" == *"file not found"* || "$output" == *"not found"* ]]
+}
+
+@test "state.sh next exits 1 with message for malformed status value" {
+    # A pass with status 'in-progress' (or any non-{pending,done} value) is a
+    # data error. Silently skipping it would put onboarding at the wrong pass.
+    local tmp_state
+    tmp_state=$(mktemp)
+    yq --null-input '
+        .schema_version = 1 |
+        .detected_os = "" |
+        .secrets_strategy = "" |
+        .harnesses = [] |
+        .passes = [
+            {"index": 0, "name": "prerequisites", "status": "in-progress", "answers": {}},
+            {"index": 1, "name": "orientation",   "status": "pending",     "answers": {}}
+        ]
+    ' > "$tmp_state"
+    run bash "$REPO_ROOT/onboard/lib/state.sh" next "$tmp_state"
+    rm -f "$tmp_state"
+    [[ "$status" -eq 1 ]]
+    [[ "$output" == *"unknown status"* || "$output" == *"in-progress"* ]]
+}

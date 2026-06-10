@@ -20,6 +20,14 @@ fi
 
 case "$cmd" in
     next)
+        # Validate: every pass must have status 'pending' or 'done'.
+        # Unknown statuses (e.g. 'in-progress') are a data error — fail loud so
+        # the agent does not silently skip or misread the resume point.
+        bad=$(yq '.passes[] | select(.status != "pending" and .status != "done") | .index' "$state_file" 2>/dev/null || true)
+        if [[ -n "$bad" ]]; then
+            echo "state.sh: pass(es) $bad have unknown status (expected pending or done)" >&2
+            exit 1
+        fi
         # Print the index of the first pass with status 'pending', or 'done'.
         result=$(yq '.passes[] | select(.status == "pending") | .index' "$state_file" \
             | head -n1)

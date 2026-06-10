@@ -4,8 +4,16 @@
 
 set -euo pipefail
 
-# Allow override for testing, default to production path
-DOTFILES_DIR="${DOTFILES_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.."; pwd)}"
+# Allow override for testing, default to production path.
+# Resolve symlinks so 'dots' works correctly when symlinked to ~/.local/bin/dots.
+_dots_src="${BASH_SOURCE[0]}"
+while [[ -L "$_dots_src" ]]; do
+    _dots_dir="$(cd "$(dirname "$_dots_src")" && pwd)"
+    _dots_src="$(readlink "$_dots_src")"
+    [[ "$_dots_src" != /* ]] && _dots_src="$_dots_dir/$_dots_src"
+done
+DOTFILES_DIR="${DOTFILES_DIR:-$(cd "$(dirname "$_dots_src")/.." && pwd)}"
+unset _dots_src _dots_dir
 DOTFILES_STATE_DIR="${DOTFILES_STATE_DIR:-${HOME}/.local/state/dotfiles}"
 
 # Load .env so downstream sync steps (chezmoi apply, the base-profile

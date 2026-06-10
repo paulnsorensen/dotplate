@@ -21,18 +21,17 @@ REPO_ROOT="$(cd "$(dirname "${BATS_TEST_FILENAME:-${BASH_SOURCE[0]:-$0}}")/.." &
 assert_not_in_repo() {
     local pattern="$1"
     local description="$2"
-    local this_file="$REPO_ROOT/tests/template-hygiene.bats"
     local result
-    # find lists only files we own; grep never wanders outside
-    result=$(find "$REPO_ROOT" \
-             \( -name "*.sh" -o -name "*.bash" -o -name "*.yaml" \
-                -o -name "*.yml" -o -name "*.toml" -o -name "*.json" \
-                -o -name "*.tmpl" -o -name "*.md" -o -name "*.txt" \
-                -o -name "*.bats" -o -name "*.zsh" -o -name "zshrc" \) \
-             -not -path "$REPO_ROOT/.git/*" \
-             -not -path "$this_file" \
-             2>/dev/null \
-             | xargs grep -l "$pattern" 2>/dev/null || true)
+    # Scan only tracked files so gitignored work artifacts (e.g. .cheese/) do not
+    # trigger false failures.  git ls-files outputs paths relative to the repo root.
+    # Extension filter matches the original scope: shell, config, and doc formats only.
+    result=$(
+        git -C "$REPO_ROOT" ls-files -z 2>/dev/null \
+        | grep -Ezv 'tests/template-hygiene\.bats' \
+        | grep -Ez '\.(sh|bash|yaml|yml|toml|json|tmpl|md|txt|bats|zsh)$|/zshrc$' \
+        | xargs -0 -I{} grep -l "$pattern" "$REPO_ROOT/{}" 2>/dev/null \
+        || true
+    )
     if [[ -n "$result" ]]; then
         echo "FAIL: found '$description' in:"
         echo "$result"
@@ -198,4 +197,14 @@ assert_file_not_present() {
 @test "no 'cheese-grok' plugin directory name in any tracked file" {
     # cheese-grok is a personal plugin name; the directory was renamed to repo-hooks
     assert_not_in_repo "cheese-grok" "cheese-grok"
+}
+
+@test "GitHub repo has isTemplate=true" {
+    # WHY: dotplate must remain a GitHub template so new users can 'Use this template'.
+    # A configuration change that unsets isTemplate silently breaks the three-step start.
+    # Skipped when gh is not installed or the network/auth call fails (offline / no token).
+    command -v gh &>/dev/null || skip "gh not installed"
+    local result
+    result=$(gh repo view --json isTemplate --jq .isTemplate 2>/dev/null) || skip "gh repo view failed (network or auth)"
+    [[ "$result" == "true" ]] || { echo "FAIL: repo isTemplate=$result (expected true)"; return 1; }
 }

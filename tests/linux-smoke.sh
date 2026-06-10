@@ -75,17 +75,28 @@ yq --version
 echo "--- Test: packages/sync.sh as root ---"
 FORCE_PACKAGES=true DOTFILES_DIR=/dotplate bash /dotplate/packages/sync.sh && echo "PASS: sync.sh exited 0" || fail "sync.sh non-zero exit"
 
-# 4. Test: bin/linux-install root check bypassed
-# The guard: [[ "${EUID}" -eq 0 ]] && command -v sudo &>/dev/null
-# In this container we are root (EUID=0) but sudo is NOT installed, so
-# the guard is skipped. Running bin/linux-install would block on the zsh
-# install prompt before the guard would fire anyway; just verify the guard
-# logic directly.
-echo "--- Test: bin/linux-install root check bypassed ---"
+# 4. Test: bin/linux-install root guard refusal (sudo installed as root → exit 1)
+echo "--- Test: bin/linux-install root guard with sudo → must refuse ---"
+apt-get install -y --no-install-recommends sudo >/dev/null 2>&1
+refusal_output=$(bash /dotplate/bin/linux-install 2>&1 || true)
+refusal_exit=$?
+[[ "$refusal_exit" -eq 1 ]] \
+    || fail "Expected exit 1 from linux-install as root+sudo, got $refusal_exit"
+echo "$refusal_output" | grep -qi "sudo" \
+    || fail "Expected refusal message mentioning sudo; got: $refusal_output"
+echo "PASS: linux-install exits 1 with refusal message when run as root+sudo"
+
+# Now remove sudo so the next pass (bypass check) works correctly.
+apt-get remove -y --purge sudo >/dev/null 2>&1
+
+# 4b. Verify root guard is bypassed when sudo is NOT installed.
+# (EUID=0 without sudo = legitimate container root; linux-install should proceed.)
+# We can verify the guard logic is correct without fully running linux-install
+# (which would need network access and all toolchains).
+echo "--- Test: bin/linux-install root guard bypassed (root, no sudo) ---"
 bash -n /dotplate/bin/linux-install && echo "PASS: linux-install parses OK"
-# EUID is readonly in bash; read it directly.
 if [[ "${EUID}" -eq 0 ]] && command -v sudo &>/dev/null; then
-    echo "FAIL: root guard would refuse (sudo installed as root)"; exit 1
+    fail "root guard would refuse (sudo still installed as root)"
 else
     echo "PASS: root guard correctly bypassed (EUID=0 but no sudo installed)"
 fi
