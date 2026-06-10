@@ -5,7 +5,7 @@
 set -euo pipefail
 
 # Allow override for testing, default to production path
-DOTFILES_DIR="${DOTFILES_DIR:-${HOME}/Dev/dotfiles}"
+DOTFILES_DIR="${DOTFILES_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.."; pwd)}"
 DOTFILES_STATE_DIR="${DOTFILES_STATE_DIR:-${HOME}/.local/state/dotfiles}"
 
 # Load .env so downstream sync steps (chezmoi apply, the base-profile
