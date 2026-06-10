@@ -96,7 +96,7 @@
     },
     "filesystem": {
       "allowWrite": [
-        "~/Dev/.prek",
+        "~/dotfiles/.prek",
         "~/.cache",
         "~/.local/share",
         "~/.local/bin",
