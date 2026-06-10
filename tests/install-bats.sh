@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Install bats-core and helpers for testing
+
+set -euo pipefail
+
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+echo -e "${BLUE}Installing bats testing framework...${NC}"
+
+# Install via Homebrew (macOS). The bats-assert/support/file helper libraries
+# are no longer kept in the kaos/shell tap (deprecated); the test_helper.bash
+# in this directory rolls its own assert_* equivalents and does not load them.
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    if command -v brew &>/dev/null; then
+        echo "Installing bats-core via Homebrew..."
+        brew install bats-core
+    else
+        echo -e "${YELLOW}Homebrew not found. Install manually:${NC}" >&2
+        echo "  git clone https://github.com/bats-core/bats-core.git" >&2
+        echo "  cd bats-core" >&2
+        echo "  ./install.sh /usr/local" >&2
+    fi
+else
+    # Linux installation
+    echo "Installing bats-core from source..."
+    git clone https://github.com/bats-core/bats-core.git /tmp/bats-core
+    cd /tmp/bats-core
+    sudo ./install.sh /usr/local
+fi
+
+echo -e "${GREEN}✅ Bats installation complete!${NC}"
+echo
+echo "Run tests with:"
+echo "  ./tests/run-tests.sh"

@@ -1,0 +1,112 @@
+{
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+    "ENABLE_TOOL_SEARCH": "true"
+  },
+  "permissions": {
+    "defaultMode": "auto"
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$HOME/.claude/hooks/hook-runner.js\" bash-guard.js",
+            "statusMessage": "Checking command safety..."
+          }
+        ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$HOME/.claude/hooks/hook-runner.js\" phantom-file-check.js",
+            "statusMessage": "Checking file..."
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit|mcp__tilth__tilth_write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$HOME/.claude/hooks/hook-runner.js\" write-guard.js worktree-guard.js",
+            "statusMessage": "Checking write..."
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit|mcp__tilth__tilth_write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$HOME/.claude/hooks/auto-format.js\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -n \"$TMUX\" ]; then tmux set-option -q @jmux-attention 1; fi",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  },
+  "sandbox": {
+    "enabled": false,
+    "autoAllowBashIfSandboxed": true,
+    "network": {
+      "allowedDomains": [
+        "127.0.0.1",
+        "localhost",
+        "github.com",
+        "api.github.com",
+        "raw.githubusercontent.com",
+        "objects.githubusercontent.com",
+        "api.anthropic.com",
+        "docs.anthropic.com",
+        "mcp-proxy.anthropic.com",
+        "registry.npmjs.org",
+        "context7.com",
+        "mcp.context7.com",
+        "ui.shadcn.com",
+        "pypi.org",
+        "files.pythonhosted.org",
+        "crates.io",
+        "static.crates.io",
+        "api.githubcopilot.com",
+        "api.tavily.com",
+        "mcp.tavily.com",
+        "json.schemastore.org",
+        "huggingface.co",
+        "cdn-lfs.huggingface.co"
+      ],
+      "allowLocalBinding": true
+    },
+    "filesystem": {
+      "allowWrite": [
+        "~/Dev/.prek",
+        "~/.cache",
+        "~/.local/share",
+        "~/.local/bin",
+        "~/.cheese"
+      ]
+    }
+  },
+  "skipDangerousModePermissionPrompt": true,
+  "theme": "dark-daltonized",
+  "editorMode": "vim",
+  "agentPushNotifEnabled": true,
+  "skipAutoPermissionPrompt": true
+}

@@ -1,0 +1,36 @@
+# Plugin Registry — Source of truth for Claude Code plugins.
+#
+# Format: <plugin>@<marketplace>
+# Marketplaces (registered in settings.json:extraKnownMarketplaces or built-in):
+#   - claude-plugins-official:    Official workflow plugins (anthropics/claude-code-plugins)
+#   - local:                      Out-of-repo local plugins; `path:` resolves the source dir
+#
+# Per-entry fields:
+#   description  — human-readable purpose
+#   scope        — user | project (default user)
+#   load         — whether to enable on install (default true)
+#   path         — local or out-of-repo path to the plugin directory
+#   gate         — env var name that must be "true" to install this plugin
+#
+# Schema example:
+#   plugins:
+#     my-plugin@claude-plugins-official:
+#       description: What this plugin does
+#       scope: user
+#       load: true
+#
+#     my-local-plugin@local:
+#       description: Local dev plugin
+#       scope: user
+#       load: true
+#       path: ~/Dev/my-plugin
+#       gate: MY_PLUGIN
+#
+# Usage:
+#   plugin-sync           Sync plugins (install missing)
+#   plugin-sync-dry       Preview changes
+#   plugin-ls             List installed plugins
+#
+# Catalog plugin entries are populated during onboarding — see onboard/catalog/plugins.yaml.
+
+plugins: {}

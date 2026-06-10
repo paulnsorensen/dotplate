@@ -1,0 +1,30 @@
+# Skill Install Registry — source repos to sync via `npx skills add`
+#
+# Each entry is a GitHub repo in OWNER/REPO format. Skills are auto-discovered
+# by the `skills` CLI (`--skill '*'`) from `skills/<name>/SKILL.md` per the
+# agentskills.io specification.
+#
+# Optional fields:
+#   skills:  explicit list of skill names (passed as repeated --skill; else '*')
+#   pin:     git branch or tag (appended as <repo>@<ref> → `git clone --branch`;
+#            commit SHAs are NOT supported by the clone-based fetch)
+#
+# Installs always run with --copy (overwrite); the source repo is shallow-cloned
+# once per entry and copied into every configured harness in one invocation.
+#
+# Harnesses are configured in .env via SKILL_HARNESSES (space-separated).
+#
+# Usage:
+#   skill-sync           Install/update all skills for each configured harness
+#   skill-ls             List installed global skills (npx skills list --global)
+#
+# Schema example:
+#   sources:
+#     owner/repo:
+#       description: What these skills do
+#       skills: [skill-a, skill-b]   # optional; defaults to all in repo
+#       pin: main                    # optional; git branch/tag
+#
+# Catalog skill sources are populated during onboarding — see onboard/catalog/skills.yaml.
+
+sources: {}

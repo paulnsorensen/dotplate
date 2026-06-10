@@ -1,0 +1,157 @@
+#!/bin/bash
+# Sync Claude Code config files to ~/.claude/
+set -euo pipefail
+
+CLAUDE_DIR="$HOME/.claude"
+SOURCE_DIR="$(cd "${BASH_SOURCE%/*}" && pwd)"
+
+# Create ~/.claude if it doesn't exist
+mkdir -p "$CLAUDE_DIR"
+
+# Config to symlink. NOT included here:
+#   - plugins/  — Claude uses that path as plugin cache
+#   - profiles/ — retired; scoped profiles moved to profiles/<name>/profile.yaml
+#                 (repo root) and deploy/launch via the `ap` tool (dots profile).
+#   - agents/   — the cheese sub-agents now live in agents/registry.yaml and
+#                 render into every harness via the `base` profile (`ap`), the
+#                 same path mcp/hooks/skills take. The legacy ~/.claude/agents
+#                 symlink is removed below; ap writes the real files to
+#                 ~/.claude/agents/<name>.md (user-scoped) + the plugin tree.
+#   - skills/   — copied (not symlinked) by chezmoi; gh-installed skills drop
+#                 real dirs alongside without fighting a directory symlink.
+#   - CLAUDE.md, RTK.md — copied (not symlinked) by chezmoi via
+#                 chezmoi/.chezmoiscripts/run_onchange_after_install-agents-doc.sh.tmpl
+#                 from the shared agents/ source so Codex sees the same content.
+#   - mcp/, hooks registry — the per-type registries live under agents/; the
+#                 registry-derived `base` profile is rendered into every harness
+#                 by chezmoi's run_onchange_after_install-base-profile.sh.tmpl.
+#   - settings.json — chezmoi/dot_claude/create_settings.json seeds it once.
+#                 `ap install global` (driven by run_onchange_after_install-base-profile)
+#                 then jq-mutates the live ~/.claude/settings.json to add the
+#                 `base@local` marketplace + enabledPlugins entry, preserving
+#                 user-managed siblings. The legacy committed claude/settings.json
+#                 is gone; a one-time `run_once_before_migrate-claude-settings`
+#                 chezmoi script unlinks any stale symlink before the seed runs.
+#
+# `hooks/`, `lib/`, and `reference/` STAY symlinked because they still hold
+# Claude-only assets (auto-format.js, sliced-bread.md, …). The base plugin's
+# self-locating SessionStart hook is now owned by the plugin tree at
+# ~/.claude/plugins/local/global/hooks/ (deployed by `ap`); no legacy
+# write-through-symlinks happens.
+configs=(
+  commands
+  hooks
+  reference
+)
+
+# Install hook dependencies (wink-nlp for violation classifier)
+if [[ -f "$SOURCE_DIR/hooks/package.json" ]]; then
+  echo "  Installing hook dependencies..."
+  if command -v npm &>/dev/null; then
+    if ! (cd "$SOURCE_DIR/hooks" && npm install --silent); then
+      echo "  ERROR: npm install for hook dependencies failed." >&2
+      echo "  To debug, run: cd \"$SOURCE_DIR/hooks\" && npm install" >&2
+      exit 1
+    fi
+  else
+    echo "  Skipping hook dependency install (npm not found)."
+    echo "  To install later, run: cd \"$SOURCE_DIR/hooks\" && npm install"
+  fi
+fi
+
+for item in "${configs[@]}"; do
+  target="$CLAUDE_DIR/$item"
+  source="$SOURCE_DIR/$item"
+
+  if [[ -e "$source" ]]; then
+    if [[ -L "$target" ]]; then
+      rm "$target"
+    elif [[ -e "$target" ]]; then
+      echo "  Backing up existing $item"
+      mv "$target" "$target.bak"
+    fi
+
+    echo "  Linking $item"
+    ln -s "$source" "$target"
+  fi
+done
+
+# RTK agent setup is done manually via the `rtk-init-*` aliases in
+# zsh/claude.zsh — running `rtk init` during sync would rewrite
+# ~/.claude/settings.json on every invocation, clobbering our symlink.
+# Claude Code hook is tracked in settings.json above and needs no init.
+
+# Set up local-marketplace + cache symlinks for ~/Dev/vaudeville so plugin sync
+# can resolve it. Gate name is read from the registry to keep the gate field
+# as the single source of truth (rename `gate:` and this function follows).
+sync_vaudeville_cache() {
+  local registry="$SOURCE_DIR/plugins/registry.yaml"
+  [[ -f "$registry" ]] || return 0
+
+  local gate
+  gate=$(yq -r '.plugins."vaudeville@local".gate // ""' "$registry")
+  [[ -z "$gate" ]] || [[ "${!gate:-false}" == "true" ]] || return 0
+
+  local local_mkt="$HOME/.claude/plugins/marketplaces/local"
+  mkdir -p "$local_mkt/.claude-plugin"
+  [[ -L "$local_mkt/vaudeville" ]] || ln -sf "$HOME/Dev/vaudeville" "$local_mkt/vaudeville"
+
+  local plugin_json="$HOME/Dev/vaudeville/.claude-plugin/plugin.json"
+  [[ -f "$plugin_json" ]] || return 0
+
+  local vaud_ver vaud_cache
+  vaud_ver=$(jq -r '.version // "0.1.0"' "$plugin_json")
+  vaud_cache="$HOME/.claude/plugins/cache/local/vaudeville/$vaud_ver"
+  mkdir -p "${vaud_cache%/*}"
+
+  if [[ ! -L "$vaud_cache" ]] || [[ "$(readlink "$vaud_cache")" != "$HOME/Dev/vaudeville" ]]; then
+    rm -rf "$vaud_cache"
+    ln -sf "$HOME/Dev/vaudeville" "$vaud_cache"
+    echo "  Linked vaudeville cache → ~/Dev/vaudeville (v$vaud_ver)"
+  fi
+
+  local old
+  for old in "$HOME/.claude/plugins/cache/local/vaudeville"/*; do
+    [[ -e "$old" ]] || continue
+    [[ "${old##*/}" == "$vaud_ver" ]] && continue
+    rm -rf "$old"
+    echo "  Pruned stale vaudeville cache: ${old##*/}"
+  done
+}
+
+# MCP sync moved to chezmoi (see run_onchange_install-mcp.sh.tmpl).
+# Plugin sync stays here — it's claude-only and tied to local marketplace setup.
+if command -v claude &>/dev/null; then
+  sync_vaudeville_cache
+  if [[ -x "$SOURCE_DIR/plugins/sync.sh" ]]; then
+    echo "  Running plugin sync..."
+    bash "$SOURCE_DIR/plugins/sync.sh" --force
+  fi
+else
+  echo "  Skipping plugin sync (claude CLI not found)"
+fi
+
+# Clean up the legacy ~/.claude/mcp symlink — registry moved to agents/mcp/.
+if [[ -L "$CLAUDE_DIR/mcp" ]]; then
+  rm "$CLAUDE_DIR/mcp"
+  echo "  Removed legacy ~/.claude/mcp symlink"
+fi
+
+# Clean up the legacy ~/.claude/agents symlink — agents moved to
+# agents/registry.yaml and now render through `ap` (base profile) as real
+# files. Leaving the symlink would shadow the rendered ~/.claude/agents tree.
+if [[ -L "$CLAUDE_DIR/agents" ]]; then
+  rm "$CLAUDE_DIR/agents"
+  echo "  Removed legacy ~/.claude/agents symlink (agents now render via ap)"
+fi
+
+# Drop stale per-project entries from ~/.claude.json (worktrees that no
+# longer exist on disk). The pruner takes a timestamped backup before
+# touching the file, so failures are recoverable.
+prune_script="$SOURCE_DIR/../bin/claude-json-prune"
+if [[ -x "$prune_script" && -f "$HOME/.claude.json" ]]; then
+  echo "  Pruning stale ~/.claude.json project entries..."
+  "$prune_script" --apply || echo "  WARN: claude-json-prune failed (non-fatal)" >&2
+fi
+
+echo "Claude config synced"

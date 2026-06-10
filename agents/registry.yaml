@@ -1,0 +1,33 @@
+# agents/registry.yaml — sub-agent definitions.
+#
+# Single source of truth for the sub-agents. Edited via `agent-edit`;
+# expanded into the `base` profile (and any profile that declares
+# `registries: { agents: agents/registry.yaml }`) by ap's ingest layer,
+# then rendered into every harness by the five renderers.
+#
+# Per-entry fields:
+#   description    — human-readable purpose (shown in agent lists)
+#   models         — per-harness model map: claude/codex/cursor → model name
+#   disallowedTools — list of tools this agent may not use
+#   tools          — explicit allowlist (alternative to disallowedTools)
+#   color          — Claude-honored display color
+#   effort         — Claude-honored effort level: low|medium|high
+#   skills         — list of skill identifiers to load for this agent
+#   body_path      — repo-relative path to the agent's instruction Markdown
+#
+# Schema example:
+#   agents:
+#     my-agent:
+#       description: What this agent does
+#       models:
+#         claude: sonnet
+#       disallowedTools:
+#         - Edit
+#         - Write
+#       color: blue
+#       effort: medium
+#       body_path: agents/agent_definitions/my-agent.md
+#
+# Catalog agent entries are populated during onboarding — see onboard/catalog/.
+
+agents: {}

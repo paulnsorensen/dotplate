@@ -1,0 +1,34 @@
+# MCP Registry — Source of truth for coding-agent MCP servers.
+# Run `mcp-sync` (or `dots sync`) to apply this to every installed harness.
+#
+# Per-entry fields:
+#   command      — stdio launcher (required)
+#   args         — array of arg strings. Rendered through `chezmoi execute-template`
+#                  per harness; the active harness name is exposed as the
+#                  Go-template var $h. Branch inline only when an entry actually
+#                  diverges. Existing ${VAR} bash-style env refs are untouched
+#                  by the templating pass.
+#   env          — env vars; values can reference shell vars via "${VAR}"
+#   scope        — claude-only: user | project | local (default user)
+#   harnesses    — list of harness names to install into; default: [claude, codex, opencode, cursor]
+#   gate_unless  — claude-only: skip install when env var == "true" (defer to a plugin's bundled MCP)
+#   optional     — when true, skip this MCP non-fatally if any ${VAR} it
+#                  references is unset (instead of failing the sync). Use for
+#                  MCPs gated on a credential the user may not have configured.
+#   description  — human-readable purpose
+#
+# Schema example:
+#   mcps:
+#     my-mcp:
+#       command: npx
+#       args: ["-y", "my-mcp-package"]
+#       env:
+#         MY_API_KEY: "${MY_API_KEY}"
+#       scope: user
+#       optional: true
+#       description: What this MCP does
+#
+# Catalog MCP entries (tilth, hallouminate, context7, tavily, serena, etc.)
+# are populated during onboarding — see onboard/catalog/mcp.yaml.
+
+mcps: {}

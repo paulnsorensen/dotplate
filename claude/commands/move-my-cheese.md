@@ -1,0 +1,221 @@
+---
+name: move-my-cheese
+description: Take over a PR — rebase/merge main, diagnose CI failures, fix tests and conflicts, push fixes. The cheese has moved; go get it.
+argument-hint: <PR number>
+allowed-tools: Bash, Read, Write, Edit, Glob, Grep, Task, WebFetch
+---
+
+Take over and rescue PR **#$ARGUMENTS** — the cheese has moved, time to find it.
+
+This command automates the "PR rescue" workflow: fetch context, diagnose failures, merge main, fix issues, run a quality sweep, push.
+
+## Skills Used
+
+This command orchestrates across multiple skills:
+
+| Phase | Skill | Why |
+|---|---|---|
+| Recon | **gh** | PR metadata, CI checks, failed run logs, diff |
+| Explore | **scout** | Search codebase for test files, CI config, related code |
+| Understand | **Serena MCP** | `mcp__serena__find_symbol` / `find_referencing_symbols` for symbol types and cross-refs; Context7 for external API docs |
+| Diagnose | **diff** | Smoke-test the merged state for obvious issues |
+| Fix | **chisel** | Edit conflict markers, patch test assertions |
+| Build | **make** | Build/check with output isolation (forked subagent) |
+| Test | **make test** | Run tests with output isolation (forked subagent) |
+| Assertion check | **tdd-assertions** | Strengthen weak test assertions after fixing tests |
+| Quality sweep | **age**, **ricotta-reducer**, **respond** | Parallel review agents (see Phase 3b) |
+| Commit | **commit** | Stage and commit fixes (conventional format) |
+| Push | **gh** | Push to PR branch, re-run failed CI |
+
+## Progress Tracking
+
+At command start, call `TaskCreate` for all 5 phases. Mark `in_progress` at phase start, `completed` at phase end.
+
+| Phase | Subject | activeForm |
+|---|---|---|
+| 1 | Recon PR state | Gathering PR context |
+| 2 | Checkout and merge main | Merging main into PR |
+| 3a | Diagnose and fix failures | Diagnosing and fixing failures |
+| 3b | Quality sweep | Running parallel review agents |
+| 4 | Push fixes and report | Pushing fixes |
+
+---
+
+## Phase 1 — Recon (gh skill)
+
+Use the `/gh` skill to gather PR context. MCP tools are preferred (sandbox-safe):
+
+```
+# MCP — get PR metadata
+pull_request_read(pullNumber=$ARGUMENTS)
+
+# CLI fallback — diff and CI checks (no MCP equivalent)
+gh pr diff $ARGUMENTS --stat
+gh pr checks $ARGUMENTS
+```
+
+For any failing checks, fetch logs (CLI-only):
+
+```bash
+gh run view <run-id> --log-failed
+```
+
+Summarize findings:
+
+- PR title and branch
+- Merge status (clean, conflicts, or blocked)
+- CI failures (infra flake vs real test failure)
+- Scope of changes (files touched, lines changed)
+- Unresolved review comments (yes/no — needed to decide if Phase 3b launches `fromage-fort`)
+
+---
+
+## Phase 2 — Checkout & Merge
+
+### Worktree Check
+
+If the PR branch is checked out in another worktree, work from the current branch:
+
+- `git fetch origin <pr-branch> main`
+- `git reset --hard origin/<pr-branch>`
+- `git merge origin/main --no-edit`
+
+If the PR branch is free:
+
+- `git checkout <pr-branch>`
+- `git merge origin/main --no-edit`
+
+### Conflict Resolution (chisel skill)
+
+If merge conflicts occur:
+
+1. List conflicting files with `git diff --name-only --diff-filter=U`
+2. Use **scout** (`rg '<<<<<<< ' --files-with-matches`) to confirm all conflict markers
+3. For each conflict, Read the file and resolve with **chisel** (Edit tool for precise context-matched replacements)
+   - Prefer the PR's intent over main's formatting changes
+   - Keep both sides when they're additive (new features on both sides)
+   - Ask the user for ambiguous conflicts (logic changes on both sides)
+4. Verify resolution: `rg '<<<<<<< |======= |>>>>>>> ' --count` should return no matches
+5. Stage resolved files and commit the merge
+
+If no conflicts: report clean merge and move on.
+
+---
+
+## Phase 3a — Diagnose & Fix
+
+### CI Failure Analysis
+
+Categorize each CI failure from Phase 1 recon:
+
+| Category | Action |
+|---|---|
+| **Infra flake** (503, timeout, OOM) | Note it — will resolve on re-run |
+| **Test failure** (assertion error) | Fix the code or test |
+| **Lint/format** (shellcheck, prettier) | Auto-fix with chisel |
+| **Build failure** (compile error, type error) | Fix with Serena lookups + chisel |
+| **Merge artifact** (conflict markers) | Should have been caught in Phase 2 |
+
+### Build Check
+
+Run the project's build command directly (`cargo check`, `tsc --noEmit`, `go build ./...`, `uv run mypy .`, etc.) — the `rtk hook claude` PreToolUse hook auto-rewrites and filters output to structured errors.
+
+If build fails, understand the failing symbols before fixing with **chisel** — use the Serena MCP (`mcp__serena__find_symbol` for type signatures, `find_referencing_symbols` for cross-refs) for local code, and Context7 (`query-docs`) for external APIs.
+
+Never grep dependency caches.
+
+### Run Tests
+
+Run the project's test command directly (`cargo test`, `npm test`, `go test ./...`, `uv run pytest`, etc.) — rtk filters test runner output via its `pytest`, `jest`, `vitest`, and `cargo` subcommands.
+
+If tests pass: the CI failure was likely infra. Move to Phase 3b.
+
+### Fix Strategy (Serena + scout + chisel skills)
+
+For real test/build failures:
+
+1. Understand the failing symbol — type mismatches, missing methods, changed APIs:
+   - Local code: `mcp__serena__find_symbol` (signature + body) and `find_referencing_symbols` (cross-refs)
+   - External API: Context7 `query-docs`
+2. Use **scout** (`rg` for error messages, `fd` for test files) to locate the failing test
+3. Read the failing test and the code under test
+4. Fix with **chisel** — minimal change, `sd` for pattern fixes, Edit for precise patches
+5. Re-run the test command to verify
+
+After fixing any tests, apply `/tdd-assertions` to strengthen weak assertions — existence checks, catch-all errors, length-only checks, and no-crash-as-success patterns. AI-generated test fixes are especially prone to these.
+
+If tests fail after fixes, run the fix-and-verify loop (up to 3 rounds):
+
+```
+Agent(subagent_type="roquefort-wrecker", prompt="Investigate test failures: <details>. Fix test bugs, score code bugs 0-100.")
+```
+
+Then apply `/tdd-assertions` to the wrecker's output and re-run the test command to verify.
+
+---
+
+## Phase 3b — Quality Sweep (parallel agents)
+
+After Phase 3a fixes are stable (build passes, tests pass), invoke the `age` skill and launch parallel review agents:
+
+```
+# Invoke the age skill inline — it spawns 6 review sub-agents directly (no nesting).
+# Follow the age skill protocol: identify scope, launch 6 agents, merge findings.
+# Scope: changes on this branch vs origin/main. Surface findings >= 50.
+# Symbol intelligence: sub-agents use the Serena MCP for structural reads.
+
+# In parallel with the age skill's sub-agents, also launch:
+Agent(subagent_type="ricotta-reducer", prompt="Review the changed files on this branch vs origin/main. Strip genAI bloat, speculative abstractions, unnecessary docs. Categorize by DELETE/INLINE/UNDOCUMENT/DECOUPLE. Only surface findings >= 50 confidence. Use the Serena MCP for structural reads (mcp__serena__find_referencing_symbols to verify dead code, find_symbol with include_body for coupling checks).")
+
+# Only if Phase 1 recon found unresolved review comments:
+Agent(subagent_type="fromage-fort", prompt="Triage unresolved review comments on PR #$ARGUMENTS. Score each 0-100, fix >= 50, push back < 30, report 30-49 for user decision.")
+```
+
+| Agent/Skill | What it catches |
+|---|---|
+| **age skill** (6 sub-agents) | Safety, complexity, encapsulation, YAGNI, spec adherence, history/risk modifiers |
+| **ricotta-reducer** | AI slop + de-slop patterns, over-abstraction, comment pollution, dead code |
+| **fromage-fort** | Unresolved reviewer comments — triages and fixes >= 50 confidence |
+
+### Apply Sweep Findings
+
+After all three agents return:
+
+1. **Collect findings >= 50 confidence** from age and de-slop reports
+2. **Apply fixes** using chisel — these are typically:
+   - Removing unnecessary abstractions or dead code (de-slop)
+   - Fixing complexity budget violations (age)
+   - Addressing reviewer comments that fromage-fort auto-fixed
+3. **Re-run the test command** to verify fixes didn't break anything
+4. If fromage-fort fixed code, those changes are already in the working tree — just verify and commit together
+
+If any finding is < 50 confidence, **ask the user** before acting on it.
+
+---
+
+## Phase 4 — Push & Report (commit + gh skills)
+
+1. **Commit** all fixes via the `/commit` skill (conventional format, never --no-verify)
+   - Merge conflict resolution gets its own commit (from Phase 2)
+   - CI/test fixes get a commit (from Phase 3a)
+   - Quality sweep fixes get a commit (from Phase 3b) — only if there were changes
+2. **Push** to the PR branch via `/gh`: use MCP `push_files` or `git push origin HEAD:<pr-branch>`
+3. If CI failure was purely infrastructure, offer to re-run: `gh run rerun <run-id> --failed` (CLI-only)
+
+Report summary:
+
+- What was wrong (conflicts, test failures, infra flakes)
+- What was fixed (including quality sweep findings)
+- Sweep scores: age report summary + de-slop fix count + respond triage table
+- What will resolve on CI re-run
+- Link to the PR
+
+---
+
+## Error Recovery
+
+- If the PR branch can't be fetched, check if it was force-pushed or deleted
+- If merge produces too many conflicts (>5 files), ask the user before proceeding
+- If tests fail after 3 fix rounds, surface remaining failures to the user
+- If quality sweep agents fail or timeout, report partial results and continue to Phase 4
+- Never force-push to the PR branch without asking

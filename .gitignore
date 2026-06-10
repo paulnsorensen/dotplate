@@ -1,0 +1,78 @@
+# Folder view configuration files
+/**/.DS_Store
+/**/Desktop.ini
+
+# Thumbnail cache files
+._*
+Thumbs.db
+
+# Files that might appear on external disks
+.Spotlight-V100
+.Trashes
+
+# Environment files — never commit secrets; use .env.example
+.env
+.env.local
+
+# Local-only authored artifacts
+.ignore
+/ROADMAP.md
+
+# Hook dependencies (installed by claude/.sync)
+claude/hooks/node_modules/
+claude/hooks/package-lock.json
+
+# Harness-managed agent skill cache (written by `gh skill install`)
+.agents/
+
+# Serena's project-local data (memories, caches)
+.serena/
+
+# Claude Code local state (settings.local.json, specs)
+.claude/
+
+# Hallouminate per-repo state
+.hallouminate/*
+!.hallouminate/config.toml
+!.hallouminate/wiki/
+
+# Cursor IDE runtime state
+/cursor/*
+!/cursor/.gitignore
+!/cursor/plugins/
+!/cursor/plugins/**
+
+# Session work artifacts (cook/age/press/cure outputs)
+.cheese/
+
+# Python cache
+__pycache__/
+
+# DuckDB databases
+*.duckdb
+
+# Backup files
+*.bak
+
+# tmux (plugins managed by TPM, theme rebuilt on dots sync)
+tmux/plugins/
+tmux/theme.conf
+
+# Vim auto-generated files
+vim/.netrwhist
+vim/undo/
+
+# Git worktrees (Claude Code task isolation)
+.worktrees/
+.conductor/
+
+# Workspace-local context
+.context/
+
+# VHS recording output
+vhs/output/
+
+# agent-profile build artifacts
+agent-profile/.venv/
+agent-profile/.pytest_cache/
+agent-profile/.cheese/
