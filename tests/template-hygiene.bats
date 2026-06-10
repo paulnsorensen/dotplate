@@ -194,3 +194,8 @@ assert_file_not_present() {
 @test "no milknado personal project reference" {
     assert_not_in_repo "paulnsorensen/milknado" "paulnsorensen/milknado"
 }
+
+@test "no 'cheese-grok' plugin directory name in any tracked file" {
+    # cheese-grok is a personal plugin name; the directory was renamed to repo-hooks
+    assert_not_in_repo "cheese-grok" "cheese-grok"
+}

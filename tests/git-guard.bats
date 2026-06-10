@@ -17,7 +17,7 @@ load test_helper
 
 HOOK_SH="$REAL_DOTFILES_DIR/agents/hooks/git-guard.sh"
 HOOK_JS="$REAL_DOTFILES_DIR/agents/lib/git-guard.js"
-CURSOR_HOOK="$REAL_DOTFILES_DIR/cursor/plugins/local/cheese-grok/hooks/git-guard.sh"
+CURSOR_HOOK="$REAL_DOTFILES_DIR/cursor/plugins/local/repo-hooks/hooks/git-guard.sh"
 COPILOT_HOOK="$REAL_DOTFILES_DIR/chezmoi/private_dot_copilot/hooks/executable_git-guard.sh"
 
 setup() {
@@ -429,7 +429,7 @@ opencode_guard() {
 }
 
 @test "cursor hooks.json wires git-guard on beforeShellExecution" {
-    local hj="$REAL_DOTFILES_DIR/cursor/plugins/local/cheese-grok/hooks.json"
+    local hj="$REAL_DOTFILES_DIR/cursor/plugins/local/repo-hooks/hooks.json"
     run jq -e '.hooks.beforeShellExecution[] | select(.command == "./hooks/git-guard.sh")' "$hj"
     [ "$status" -eq 0 ]
 }

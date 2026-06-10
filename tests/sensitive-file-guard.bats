@@ -250,10 +250,10 @@ guard() {
 }
 
 # ── Cursor adapter (separate hook: flat exit-2 protocol) ──────────────
-# cheese-grok ships its own bash hook because Cursor's deploy only carries
+# repo-hooks ships its own bash hook because Cursor's deploy only carries
 # .sh files and its block mechanism is exit code 2, not the nested JSON.
 
-CURSOR_HOOK="$REAL_DOTFILES_DIR/cursor/plugins/local/cheese-grok/hooks/sensitive-file-guard.sh"
+CURSOR_HOOK="$REAL_DOTFILES_DIR/cursor/plugins/local/repo-hooks/hooks/sensitive-file-guard.sh"
 
 # exit 2 = deny, exit 0 = allow.
 cursor_guard() {

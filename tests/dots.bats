@@ -155,3 +155,13 @@ STUB
     assert_output_contains "git revert"
     assert_output_contains "dots sync"
 }
+
+@test "dots help works from an arbitrary clone location without DOTFILES_DIR set" {
+    local clone_dir="$TEST_HOME/arbitrary-clone"
+    mkdir -p "$clone_dir/bin"
+    cp -r "$REAL_DOTFILES_DIR/bin/." "$clone_dir/bin/"
+    # Invoke bin/dots directly with NO DOTFILES_DIR set — should derive from script location
+    run env -u DOTFILES_DIR bash "$clone_dir/bin/dots" help
+    assert_success
+    assert_output_contains "Usage: dots [command] [args]"
+}
