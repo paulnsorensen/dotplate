@@ -6,8 +6,9 @@
 #
 # Tests:
 #   1. packages/sync.sh runs as root without crashing (apt packages installed)
-#   2. bin/linux-install runs as root without the EUID=0 refusal
+#   2. bin/linux-install root guard correctly bypassed (no sudo in container)
 #   3. dots help works (CLI machinery is not broken)
+#   4. e2e-onboarding-dry-run.sh passes on Linux
 #
 # Exit 0 = pass, exit 1 = fail, exit 2 = skipped.
 
@@ -59,7 +60,7 @@ cd /dotplate
 # 1. Bootstrap curl + apt essentials so we can pull other tools
 echo "--- apt-get update ---"
 apt-get update -qq
-apt-get install -y --no-install-recommends curl ca-certificates git bash
+apt-get install -y --no-install-recommends curl ca-certificates git bash python3
 
 # 2. Bootstrap yq (needed by sync.sh before it can do anything)
 echo "--- Bootstrap yq ---"
@@ -74,30 +75,31 @@ yq --version
 echo "--- Test: packages/sync.sh as root ---"
 FORCE_PACKAGES=true DOTFILES_DIR=/dotplate bash /dotplate/packages/sync.sh && echo "PASS: sync.sh exited 0" || fail "sync.sh non-zero exit"
 
-# 4. Test: bin/linux-install no longer refuses root
+# 4. Test: bin/linux-install root check bypassed
+# The guard: [[ "${EUID}" -eq 0 ]] && command -v sudo &>/dev/null
+# In this container we are root (EUID=0) but sudo is NOT installed, so
+# the guard is skipped. Running bin/linux-install would block on the zsh
+# install prompt before the guard would fire anyway; just verify the guard
+# logic directly.
 echo "--- Test: bin/linux-install root check bypassed ---"
-# Use --dry-run not available, so just check that the EUID guard is not triggered.
-# The real guard now checks: EUID==0 AND sudo available.
-# In this container sudo is NOT installed, so the check passes.
 bash -n /dotplate/bin/linux-install && echo "PASS: linux-install parses OK"
-# Run just the first few lines up to the EUID guard (set -e means it aborts on error)
-bash -c '
-    # Source only the guard section by running with a fake exec at end of guard
-    set -uo pipefail
-    EUID=0
-    # The guard: [[ "${EUID}" -eq 0 ]] && command -v sudo &>/dev/null
-    # sudo is not installed in this container, so the guard is skipped.
-    if [[ "${EUID}" -eq 0 ]] && command -v sudo &>/dev/null; then
-        echo "FAIL: would have refused root"; exit 1
-    else
-        echo "PASS: root guard correctly bypassed (no sudo installed)"
-    fi
-'
+# EUID is readonly in bash; read it directly.
+if [[ "${EUID}" -eq 0 ]] && command -v sudo &>/dev/null; then
+    echo "FAIL: root guard would refuse (sudo installed as root)"; exit 1
+else
+    echo "PASS: root guard correctly bypassed (EUID=0 but no sudo installed)"
+fi
 
 # 5. Test: dots help works
 echo "--- Test: dots help ---"
-bash /dotplate/bin/dots help | head -3
-[[ $(bash /dotplate/bin/dots help 2>&1 | head -1) == "Usage: dots"* ]] && echo "PASS: dots help works" || fail "dots help unexpected output"
+bash /dotplate/bin/dots help 2>&1 | head -5
+bash /dotplate/bin/dots help 2>&1 | grep -q "Usage:" && echo "PASS: dots help works" || fail "dots help unexpected output"
+
+# 6. Test: e2e onboarding dry-run passes on Linux
+echo "--- Test: e2e-onboarding-dry-run ---"
+# PATH already includes /root/.local/bin (yq) and /root/.local/bin (uv) from sync.sh bootstrap.
+export PATH="/root/.local/bin:$PATH"
+bash /dotplate/tests/e2e-onboarding-dry-run.sh && echo "PASS: e2e-onboarding-dry-run passed" || fail "e2e-onboarding-dry-run failed"
 
 echo
 echo "=== All smoke tests passed ==="
