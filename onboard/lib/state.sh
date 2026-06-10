@@ -29,8 +29,9 @@ case "$cmd" in
             exit 1
         fi
         # Print the index of the first pass with status 'pending', or 'done'.
-        result=$(yq '.passes[] | select(.status == "pending") | .index' "$state_file" \
-            | head -n1)
+        # Single yq call — no `| head -n1`: under pipefail, head exiting early
+        # SIGPIPEs yq (exit 141) on Linux and kills the script silently.
+        result=$(yq '[.passes[] | select(.status == "pending") | .index] | .[0] // ""' "$state_file")
         if [[ -z "$result" ]]; then
             echo "done"
         else
