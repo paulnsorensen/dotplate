@@ -1,0 +1,49 @@
+# agents/plugins/registry.yaml — cross-harness plugin registry
+#
+# Each entry names a plugin and points at its marketplace root. At ingest time,
+# `ap` auto-discovers the plugin's primitives from the payload dir and
+# decomposes them into the existing per-harness renderers:
+#
+#   .mcp.json         → MCP server(s), with the entry's harnesses list
+#   skills/<n>/SKILL.md → path: skill items
+#   agents/ / hooks/  → respective items (if present)
+#
+# _source_dir on every emitted item is stamped at the plugin payload root
+# (NOT the repo root). Renderers resolve payload files via:
+#   Path(item["_source_dir"]) / item["path"]
+#
+# Schema per entry:
+#   KEY:           the entry name MUST equal a plugins[].name in the
+#                  marketplace.json — that named plugin is the one decomposed.
+#                  A key/name mismatch fails loud at ingest.
+#
+#   Source (exactly one required; both or neither raises ParseError):
+#   path:          marketplace root (local checkout); ~-relative, /absolute, or
+#                  repo-relative.
+#   git:           clone URL (e.g. https://github.com/org/repo). The repo is
+#                  cloned / refreshed into ~/.cache/ap/plugins/<KEY>.
+#   branch:        branch to clone (optional; default: main). Only with git:.
+#   subdir:        sub-directory inside the repo whose root is the marketplace
+#                  root (i.e. contains .claude-plugin/marketplace.json).
+#                  Optional; default: repo root. Relative paths only; no '..'.
+#
+#   harnesses:     MCP membership list. Default = all harnesses.
+#   claude_native: true → Claude gets the native marketplace install
+#                  (atomic plugin install + plugin-scoped mcp__ names).
+#                  Other harnesses always get decomposed primitives.
+#   gate_unless:   optional env var gate on the decomposed MCP items (same
+#                  semantics as the MCP registry gate). Does NOT gate the
+#                  Claude-native install path.
+#   description:   human-readable description
+#
+# Per-harness reach:
+#   claude   → native marketplace install (full plugin, nothing lost)
+#   codex    → MCP + skills + hooks (loses custom /commands)
+#   opencode → MCP + skills + agents
+#   cursor   → MCP + skills + agents + commands + hooks
+#   copilot  → skills + hooks + agents; MCP only if harnesses includes copilot
+#   crush    → MCP only
+#
+# Catalog plugin entries are populated during onboarding — see onboard/catalog/plugins.yaml.
+
+plugins: {}

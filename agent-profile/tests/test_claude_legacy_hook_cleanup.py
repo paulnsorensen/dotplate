@@ -10,7 +10,7 @@ whose script moved into the plugin and was deleted from
 renderer is now responsible for cleaning the legacy entries when it wires
 the hooks into the plugin (mirrors the codex renderer's config.toml sweep).
 
-Tests assert: the dead script-hook entry (cheese-flair) is stripped,
+Tests assert: the dead script-hook entry (example-flair) is stripped,
 command-type duplicates (moshi) are stripped across every event,
 user-authored hooks the plugin does NOT manage (JS guards, rtk, a tmux
 Stop hook) are preserved, non-hook keys survive, a managed basename
@@ -34,12 +34,12 @@ from agent_profile.renderers.claude import (
 
 def _manifest_with_hooks(src: Path) -> Manifest:
     """A manifest carrying the two hook shapes the migration left behind:
-    a script hook (cheese-flair, SessionStart) and a command hook (moshi,
+    a script hook (example-flair, SessionStart) and a command hook (moshi,
     fanned across SessionStart + Stop)."""
     hooks_dir = src / "hooks"
     hooks_dir.mkdir(parents=True, exist_ok=True)
-    (hooks_dir / "session-start-cheese-flair.sh").write_text(
-        "#!/bin/bash\n: cheese flair\n"
+    (hooks_dir / "session-start-example-flair.sh").write_text(
+        "#!/bin/bash\n: example flair\n"
     )
     moshi = "'/home/paul/.local/bin/moshi-hook' claude-hook"
     return Manifest(
@@ -47,9 +47,9 @@ def _manifest_with_hooks(src: Path) -> Manifest:
         description="t",
         hooks=[
             {
-                "name": "session-start-cheese-flair",
+                "name": "session-start-example-flair",
                 "event": "SessionStart",
-                "script": "hooks/session-start-cheese-flair.sh",
+                "script": "hooks/session-start-example-flair.sh",
                 "matcher": "startup|resume",
                 "timeout": 5,
                 "harnesses": ["claude"],
@@ -101,7 +101,7 @@ def _seed_legacy_settings(target: Path) -> Path:
                             "hooks": [
                                 {
                                     "type": "command",
-                                    "command": 'bash "$HOME/.claude/hooks/session-start-cheese-flair.sh"',
+                                    "command": 'bash "$HOME/.claude/hooks/session-start-example-flair.sh"',
                                     "timeout": 5,
                                 }
                             ]
@@ -142,10 +142,10 @@ def _render(tmp_path: Path) -> Path:
 # ── full-render integration ──────────────────────────────────────────────────
 
 
-def test_dead_cheese_flair_entry_stripped(tmp_path: Path) -> None:
+def test_dead_example_flair_entry_stripped(tmp_path: Path) -> None:
     settings = _render(tmp_path)
     data = json.loads(settings.read_text())
-    # SessionStart held only cheese-flair + moshi → both managed → key gone.
+    # SessionStart held only example-flair + moshi → both managed → key gone.
     assert "SessionStart" not in data["hooks"]
 
 
@@ -211,12 +211,12 @@ def test_no_settings_file_is_noop(tmp_path: Path) -> None:
 def test_signatures_split_script_basename_vs_command() -> None:
     entries = {
         "SessionStart": [
-            {"hooks": [{"command": "${CLAUDE_PLUGIN_ROOT}/hooks/session-start-cheese-flair.sh"}]},
+            {"hooks": [{"command": "${CLAUDE_PLUGIN_ROOT}/hooks/session-start-example-flair.sh"}]},
             {"hooks": [{"command": "'/x/moshi-hook' claude-hook"}]},
         ]
     }
     sigs = _managed_signatures_per_event(entries)
-    assert sigs["SessionStart"].basenames == {"session-start-cheese-flair.sh"}
+    assert sigs["SessionStart"].basenames == {"session-start-example-flair.sh"}
     assert sigs["SessionStart"].commands == {"'/x/moshi-hook' claude-hook"}
 
 
@@ -224,7 +224,7 @@ def test_cross_event_basename_survives() -> None:
     # A user routing the managed basename through an UNMANAGED event keeps it:
     # the per-event managed set for PreToolUse is empty, so prune is skipped.
     sigs = _managed_signatures_per_event(
-        {"SessionStart": [{"hooks": [{"command": "${CLAUDE_PLUGIN_ROOT}/hooks/session-start-cheese-flair.sh"}]}]}
+        {"SessionStart": [{"hooks": [{"command": "${CLAUDE_PLUGIN_ROOT}/hooks/session-start-example-flair.sh"}]}]}
     )
     assert "PreToolUse" not in sigs
 
@@ -253,8 +253,8 @@ def test_user_command_mentioning_managed_basename_survives() -> None:
     # A user hook whose command merely CONTAINS a managed script basename as
     # a non-script substring must NOT be pruned. The old substring matcher
     # (`any(sig in cmd ...)`) wrongly evicted it.
-    arr = [{"hooks": [{"command": "echo session-start-cheese-flair.sh ran"}]}]
-    sigs = _ManagedSigs({"session-start-cheese-flair.sh"}, set())
+    arr = [{"hooks": [{"command": "echo session-start-example-flair.sh ran"}]}]
+    sigs = _ManagedSigs({"session-start-example-flair.sh"}, set())
     assert _prune_settings_blocks(arr, sigs) is None
 
 

@@ -1,11 +1,10 @@
 # packages.yaml — flat package registry
 #
-# Bare string = brew (mac) / apt (linux)
+# Bare string = brew formula (mac + linux)
 # Key-value = override defaults
 #
 #   source:   brew (default) | cask | tap | cargo | npm | uv | gh-extension
 #   dev:      only when DOTFILES_DEV=true
-#   apt:      override name for linux
 #   platform: mac | linux (default: both)
 #   flags:    extra args spliced into the installer (uv source only;
 #             e.g. ["--python", "3.13", "--prerelease=allow"])
@@ -34,7 +33,7 @@ packages:
   - yq
   - jq
   - git
-  - bats-core: { apt: bats }                  # bats test runner; brew formula is bats-core, apt pkg is bats
+  - bats-core                                  # bats test runner (tests/*.bats)
   - uv: { platform: mac }                    # on Linux: bootstrapped via curl https://astral.sh/uv/install.sh (in packages/sync.sh)
   - shellcheck
   - just
@@ -44,4 +43,4 @@ packages:
   - markdownlint-cli2: { source: npm }
 
   # Node (required by jq/npm-sourced tools and MCP servers)
-  - node: { apt: nodejs }
+  - node

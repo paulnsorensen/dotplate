@@ -1,8 +1,7 @@
 """Byte/string-parity tests for the Claude native-plugin renderer.
 
 Golden fixtures under ``tests/fixtures/golden/claude/`` were captured from
-the source bash (``agent-profile/renderers/claude.sh`` on
-``origin/paulnsorensen/pr-177-nih-audit``) installing the real ``rust``
+the source bash (``agent-profile/renderers/claude.sh``) installing the real ``rust``
 profile and a synthetic ``mcptest`` profile against a scratch target. These
 tests materialize the same profile inputs, run :class:`ClaudeRenderer`, and
 assert the on-disk tree is byte-for-byte identical to the bash output.
@@ -561,7 +560,7 @@ hooks:
 
 def test_hook_matcher_dropped_for_non_matcher_event(env):
     """A SessionStart entry carrying a matcher (the codex-only source regex,
-    e.g. cheese-flair's "startup|resume") must render WITHOUT a matcher on the
+    e.g. example-flair's "startup|resume") must render WITHOUT a matcher on the
     Claude side — Claude only consumes matchers for PreToolUse/PostToolUse.
     Locks parity with `_hook_event_uses_matcher` in agents/hooks/lib.sh so the
     live `ap` render path doesn't leak a dead matcher field Claude ignores."""

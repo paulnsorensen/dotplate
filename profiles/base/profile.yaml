@@ -10,4 +10,5 @@ registries:
   mcps:   agents/mcp/registry.yaml
   agents: agents/registry.yaml
   skills: [skills/_registry.yaml, skills/]
-  hooks:  agents/hooks/registry.yaml
+  hooks:   agents/hooks/registry.yaml
+  plugins: agents/plugins/registry.yaml

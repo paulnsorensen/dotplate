@@ -2,9 +2,11 @@
 
 Behavioral port of agent-profile/renderers/opencode.sh, scoped to the
 ``opencode.json`` merge + surgical clean (the mcp + permission surfaces).
-The skill/command writers route through the shared cross-harness paths and
-are owned elsewhere; this renderer owns the merged ``opencode.json`` file
-plus opencode's native subagent files at ``<target>/agents/<name>.md``.
+This renderer also copies local ``path:`` skills into
+``<target>/skills/<name>/`` (opencode's native skill directory) and writes
+native subagent files at ``<target>/agents/<name>.md``. External
+``source:`` skills are fetched by the CLI's ``cmd_install`` via ``npx`` and
+land in the same ``skills/`` tree.
 
 Substrate: stdlib :mod:`json` only (own your keys; ``del``/``pop`` for
 surgical removal). No ``jq``.
@@ -20,6 +22,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -30,31 +33,100 @@ from agent_profile.shared import agent_is_read_only, strip_frontmatter, track_fi
 
 # opencode's MCP membership default (matches the bash select default).
 _OPENCODE_MCP_DEFAULT = ("claude", "codex", "opencode")
+OPENCODE_MCP_DEFAULT = _OPENCODE_MCP_DEFAULT
 
 _SCHEMA_STUB = {"$schema": "https://opencode.ai/config.json"}
 
 # Claude `Bash(<cmd>:*)` prefix form -> opencode shell glob `<cmd> *`.
-# Anything else passes through verbatim (best-effort, per the bash).
 _BASH_PREFIX_RE = re.compile(r"^Bash\(([^:)]+):\*\)$")
+# Generic `Tool(arg)` form.
+_PAREN_RE = re.compile(r"^([A-Za-z]+)\((.*)\)$")
+
+# Claude tool name -> opencode permission key.
+_TOOL_KEY = {
+    "Bash": "bash",
+    "Read": "read",
+    "Edit": "edit",
+    "Write": "edit",
+    "WebFetch": "webfetch",
+    "WebSearch": "websearch",
+    "Glob": "glob",
+    "Grep": "grep",
+    "Skill": "skill",
+    "Agent": "task",
+    "ExternalDirectory": "external_directory",
+}
+
+# opencode's pattern-map-capable tools. Every other key (webfetch, websearch,
+# lsp, MCP tool keys) is shorthand-only: a string action, no {pattern: action}
+# map. A ``None`` pattern from the classifier marks a shorthand key.
+_MAP_TOOLS = frozenset(
+    {"read", "edit", "glob", "grep", "bash", "task", "external_directory", "skill"}
+)
 
 
-def _translate_permission(p: str) -> str:
-    """Best-effort Claude-permission -> opencode shell-glob translation.
+def _translate_permission(p: str) -> tuple[str, str | None]:
+    """Classify a Claude permission rule into an opencode ``(key, pattern)``.
 
-    ``Bash(cargo:*)`` -> ``cargo *``; every other form is returned as-is.
-    Port of the bash ``capture("^Bash\\((?<cmd>[^:)]+):\\*\\)$")`` branch."""
+    ``pattern is None`` means a shorthand-only key (rendered as
+    ``permission.<key> = <action>``); a concrete pattern means a map-capable
+    tool (rendered as ``permission.<key>[<pattern>] = <action>``).
+
+    Best-effort, per the bash heritage: an unrecognized form lands under
+    ``bash`` verbatim rather than being dropped."""
     m = _BASH_PREFIX_RE.match(p)
-    return f"{m.group(1)} *" if m else p
+    if m:
+        return ("bash", f"{m.group(1)} *")
+
+    # MCP rule: mcp__server__tool / mcp__server__* / mcp__server.
+    # opencode keys MCP tools as ``<server>_<tool>``; ``*`` or a missing tool
+    # collapses to the whole-server ``<server>_*``. Split only on the ``mcp__``
+    # prefix then the ``__`` separator so a hyphen/underscore in the server
+    # name (e.g. code-review-graph) survives.
+    if p.startswith("mcp__"):
+        server, sep, tool = p[len("mcp__") :].partition("__")
+        if not sep or tool in ("", "*"):
+            return (f"{server}_*", None)
+        return (f"{server}_{tool}", None)
+
+    m = _PAREN_RE.match(p)
+    if m:
+        tool, arg = m.group(1), m.group(2)
+        key = _TOOL_KEY.get(tool)
+        if key in _MAP_TOOLS:
+            return (key, arg)
+        if key is not None:  # shorthand tool (webfetch/websearch)
+            return (key, None)
+        return ("bash", p)  # unknown Tool(arg) -> verbatim under bash
+
+    # Bare token (no parens) -> bash literal (back-compat pass-through).
+    return ("bash", p)
 
 
-def _allow_keys(manifest: Manifest) -> list[str]:
-    """The translated permission keys this profile contributes to
-    ``permission.bash``. Order follows ``permissions_allow`` (already
-    sorted+deduped by the parser)."""
-    return [
-        _translate_permission(p)
-        for p in manifest.settings.get("permissions_allow", [])
-    ]
+def _perms(manifest: Manifest, field: str) -> list[tuple[str, str | None]]:
+    """Translate one permission channel (``permissions_allow`` /
+    ``permissions_deny``) into opencode ``(key, pattern)`` pairs. Order
+    follows the channel list (already sorted+deduped by the parser)."""
+    return [_translate_permission(p) for p in manifest.settings.get(field, [])]
+
+
+def _apply_perms(
+    permission: dict[str, Any],
+    perms: list[tuple[str, str | None]],
+    action: str,
+) -> None:
+    """Write each ``(key, pattern)`` into the ``permission`` object with the
+    given action. Shorthand keys (``pattern is None``) set a string; map keys
+    append to the tool's ``{pattern: action}`` map. ``setdefault`` preserves
+    user-set siblings; a user value that isn't a map under a map-tool key is
+    left untouched."""
+    for key, pattern in perms:
+        if pattern is None:
+            permission[key] = action
+            continue
+        bucket = permission.setdefault(key, {})
+        if isinstance(bucket, dict):
+            bucket[pattern] = action
 
 
 def _to_opencode_env(value: str) -> str:
@@ -87,6 +159,9 @@ def _mcp_server_record(mcp: dict[str, Any]) -> dict[str, Any]:
     return record
 
 
+mcp_server_record = _mcp_server_record
+
+
 class OpencodeRenderer:
     """Renderer for the merged ``opencode.json`` mcp + permission surfaces.
 
@@ -99,19 +174,22 @@ class OpencodeRenderer:
     mcp_default = _OPENCODE_MCP_DEFAULT
 
     def render(self, manifest: Manifest, target: Path) -> list[str]:
-        """Render opencode's native subagent files (``<target>/agents/``) and
-        merge this profile's opencode MCPs + translated permissions into
+        """Render opencode's native subagent files (``<target>/agents/``),
+        copy local skills into ``<target>/skills/``, then merge this
+        profile's opencode MCPs + translated permissions into
         ``<target>/opencode.json``, bootstrapping the schema stub when the
-        file is absent. Returns the tracked agent paths; the merged
+        file is absent. Returns the tracked paths; the merged
         ``opencode.json`` is never listed (it is undone in :meth:`clean`)."""
         written = self._render_agents(manifest, target)
+        self._write_skills(manifest, target, written)
 
         mcps = mcps_for(manifest, "opencode", _OPENCODE_MCP_DEFAULT)
-        allow = _allow_keys(manifest)
+        allow = _perms(manifest, "permissions_allow")
+        deny = _perms(manifest, "permissions_deny")
 
         # Bash early-returns when neither mcp/permission surface has anything
-        # to add; agents are written above regardless.
-        if not mcps and not allow:
+        # to add; agents and skills are written above regardless.
+        if not mcps and not allow and not deny:
             return written
 
         cfg = Path(str(target).rstrip("/")) / "opencode.json"
@@ -126,11 +204,12 @@ class OpencodeRenderer:
             for mcp in mcps:
                 mcp_section[mcp["name"]] = _mcp_server_record(mcp)
 
-        if allow:
+        if allow or deny:
             permission = data.setdefault("permission", {})
-            bash = permission.setdefault("bash", {})
-            for key in allow:
-                bash[key] = "allow"
+            # opencode is last-match-wins: emit allow entries before deny so
+            # the more specific deny rule the user added wins within a tool map.
+            _apply_perms(permission, allow, "allow")
+            _apply_perms(permission, deny, "deny")
 
         cfg.parent.mkdir(parents=True, exist_ok=True)
         cfg.write_text(json.dumps(data, indent=2) + "\n")
@@ -179,6 +258,34 @@ class OpencodeRenderer:
             track_file(written, rel)
         return written
 
+    def _write_skills(self, manifest: Manifest, target: Path, out: list[str]) -> None:
+        """Copy local ``path:`` skills into opencode's native skill directory
+        (``<target>/skills/<name>/``). External ``source:`` skills are handled
+        by the CLI's ``_fetch_external_skills`` via ``npx skills add`` and are
+        skipped here — they already land in the same ``skills/`` tree.
+
+        opencode reads ``<config>/skills/<name>/SKILL.md`` natively, so local
+        skills placed here are available as ``@skill`` invocations alongside
+        the external ones fetched by the CLI. The cross-harness shared paths
+        (``.agents/skills/``, ``.claude/skills/``) also serve opencode as
+        fallback, but this copy puts them in opencode's own primary skill dir."""
+        base = Path(str(target).rstrip("/"))
+        for item in manifest.skills:
+            path_rel = item.get("path") or ""
+            if not path_rel:
+                continue  # source: (gh-fetched) skill — handled by cmd_install
+            name = item["name"]
+            src = Path(item["_source_dir"]) / path_rel
+            if not src.is_dir():
+                continue  # same silent-skip as copilot renderer
+            rel = f"skills/{name}"
+            dst = base / rel
+            if dst.exists():
+                shutil.rmtree(dst)
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(src, dst)
+            track_file(out, rel)
+
     def clean(self, manifest: Manifest, target: Path) -> None:
         """Surgically remove this profile's mcp + permission entries from
         ``<target>/opencode.json``, then prune empty containers.
@@ -196,7 +303,9 @@ class OpencodeRenderer:
         ours_mcp = {
             m["name"] for m in mcps_for(manifest, "opencode", _OPENCODE_MCP_DEFAULT)
         }
-        ours_allow = set(_allow_keys(manifest))
+        ours_perms = _perms(manifest, "permissions_allow") + _perms(
+            manifest, "permissions_deny"
+        )
 
         mcp_section = data.get("mcp")
         if isinstance(mcp_section, dict):
@@ -207,12 +316,15 @@ class OpencodeRenderer:
 
         permission = data.get("permission")
         if isinstance(permission, dict):
-            bash = permission.get("bash")
-            if isinstance(bash, dict):
-                for key in ours_allow:
-                    bash.pop(key, None)
-                if not bash:
-                    permission.pop("bash", None)
+            for key, pattern in ours_perms:
+                if pattern is None:  # shorthand key (string action)
+                    permission.pop(key, None)
+                    continue
+                bucket = permission.get(key)
+                if isinstance(bucket, dict):
+                    bucket.pop(pattern, None)
+                    if not bucket:
+                        permission.pop(key, None)
             if not permission:
                 data.pop("permission", None)
 

@@ -28,7 +28,7 @@ def source_only_profile(env):
         "extprof",
         "name: extprof\n"
         "skills:\n"
-        "  - name: mold\n    source: paulnsorensen/easy-cheese\n"
+        "  - name: mold\n    source: example-org/example-skills\n"
         "  - name: local-skill\n    path: skills/local-skill\n",
         {"skills/local-skill/SKILL.md": "# local\n"},
     )
@@ -68,7 +68,7 @@ def test_install_fetches_source_skill(env, stub_renderers, monkeypatch, capsys):
         "extprof",
         "name: extprof\n"
         "skills:\n"
-        "  - name: mold\n    source: paulnsorensen/easy-cheese\n    pin: v1\n",
+        "  - name: mold\n    source: example-org/example-skills\n    pin: v1\n",
     )
     calls = []
     monkeypatch.setattr(cli, "_skill_fetch_runner", lambda argv: calls.append(argv) or 0)
@@ -80,7 +80,7 @@ def test_install_fetches_source_skill(env, stub_renderers, monkeypatch, capsys):
     fetches = [c for c in calls if "npx" in c and "skills" in c and "add" in c]
     assert len(fetches) == 1
     argv = fetches[0]
-    assert argv[argv.index("add") + 1] == "paulnsorensen/easy-cheese@v1"  # pin via @ref
+    assert argv[argv.index("add") + 1] == "example-org/example-skills@v1"  # pin via @ref
     assert "mold" in argv
     assert argv[argv.index("--agent") + 1] == "claude-code"
 
@@ -119,7 +119,7 @@ def test_install_repo_level_source_uses_skill_star(env, stub_renderers, monkeypa
     write_profile(
         env.profiles,
         "extprof",
-        "name: extprof\nskills:\n  - source: paulnsorensen/easy-cheese\n",
+        "name: extprof\nskills:\n  - source: example-org/example-skills\n",
     )
     calls = []
     monkeypatch.setattr(cli, "_skill_fetch_runner", lambda argv: calls.append(argv) or 0)
@@ -127,7 +127,7 @@ def test_install_repo_level_source_uses_skill_star(env, stub_renderers, monkeypa
     assert cli.main(["install", "extprof", "--harness", "claude"]) == 0
     assert len(calls) == 1
     argv = calls[0]
-    assert argv[argv.index("add") + 1] == "paulnsorensen/easy-cheese"
+    assert argv[argv.index("add") + 1] == "example-org/example-skills"
     assert argv[argv.index("--skill") + 1] == "*"
 
 

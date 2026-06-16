@@ -5,7 +5,7 @@ agent-profile/lib/commands.sh (the cmd_* handlers). Stdout strings,
 stderr error strings, and exit codes match the bash so the steel-thread
 golden tests assert byte/string identity.
 
-The five harness renderers are owned by sibling curds; this module
+The harness renderers are owned by sibling curds; this module
 dispatches through a registry (:data:`RENDERERS`) keyed by harness name.
 The registry is populated by the wiring phase (the ``renderers`` barrel).
 :func:`set_renderers` lets tests inject stub renderers so the CLI's
@@ -34,7 +34,7 @@ from agent_profile.renderers.base import (
     includes_harness,
 )
 
-ALL_HARNESSES = ["claude", "codex", "opencode", "cursor", "copilot"]
+ALL_HARNESSES = ["claude", "codex", "opencode", "cursor", "copilot", "crush"]
 
 # Harness-name -> Renderer. Populated by the wiring barrel; tests inject
 # stubs via set_renderers(). Empty by default (seed phase ships no
@@ -288,7 +288,7 @@ def cmd_install(
         written = renderer.render(manifest, target)
         all_new_files.extend(written)
 
-    _fetch_external_skills(manifest, harnesses, colors, out)
+    _fetch_external_skills(manifest, harnesses, colors, out, live=target_opt is None)
 
     new_files = sorted(set(all_new_files))
 
@@ -431,11 +431,20 @@ def _fetch_external_skills(
     harnesses: list[str],
     colors: _Colors,
     out: Any,
+    *,
+    live: bool = True,
 ) -> None:
     """Fetch every ``source:`` skill into the in-scope harnesses via
     ``npx skills add`` (spec curd 4) — one shallow clone per source repo,
     installed to all harnesses at once. ``path:`` skills are copied by the
-    renderers, so they are excluded here."""
+    renderers, so they are excluded here.
+
+    ``live=False`` (staged installs: ``--target`` was given explicitly) skips
+    the fetch entirely. ``npx skills add`` always installs at global scope
+    (``-g``) regardless of the target directory, so running it during a staged
+    render would mutate the user's real skill dirs even though the caller
+    requested a throwaway target. Staged callers should run ``ap install``
+    without ``--target`` when they are ready to populate the live dirs."""
     from agent_profile.fetch import (
         SkillFetchError,
         external_skills,
@@ -446,10 +455,23 @@ def _fetch_external_skills(
     if not ext:
         return
 
+    if not live:
+        print(
+            f"  {colors.BLUE}↳{colors.NC} external skills skipped "
+            f"(staged install — run without --target to fetch into live dirs)",
+            file=out,
+        )
+        return
+
+    skill_harnesses = [h for h in harnesses if h in ("claude", "codex", "cursor", "copilot", "opencode")]
+    if not skill_harnesses:
+        return
+
     # Group items by source repo. A bare `source:` (no name) means "all skills"
     # for that repo (--skill '*') and wins over any explicit names from sibling
     # items. `pin` is a per-source property. Insertion order is preserved so
-    # output (and test assertions) stay deterministic.
+    # output (and test assertions) stay deterministic. Harnesses with no
+    # `npx skills` backend (currently crush) are filtered out here.
     order: list[str] = []
     groups: dict[str, dict[str, Any]] = {}
     for skill in ext:
@@ -473,11 +495,11 @@ def _fetch_external_skills(
             label = "*" if names is None else ", ".join(names)
             print(
                 f"  {colors.BLUE}↳{colors.NC} fetching skills "
-                f"{source} ({label}) -> {', '.join(harnesses)}",
+                f"{source} ({label}) -> {', '.join(skill_harnesses)}",
                 file=out,
             )
             fetch_external_source(
-                source, names, g["pin"], harnesses, _skill_fetch_runner
+                source, names, g["pin"], skill_harnesses, _skill_fetch_runner
             )
     except SkillFetchError as exc:
         raise CliError(f"{colors.RED}{exc}{colors.NC}") from exc
@@ -601,7 +623,7 @@ def cmd_launch(
     if not harness:
         raise CliError(
             f"{colors.RED}ap launch: harness required "
-            f"(claude|codex|opencode|cursor|copilot){colors.NC}"
+            f"(claude|codex|opencode|cursor|copilot|crush){colors.NC}"
         )
     if harness not in ALL_HARNESSES:
         raise CliError(
@@ -649,19 +671,16 @@ def _launch_isolated(
     colors: _Colors,
     out: Any,
 ) -> NoReturn:
-    """Closed-world launch (spec curd 6 / D6): build the ccp-parity flags,
-    inject the profile env, exec the harness. Isolated profiles are
-    claude-only (the flags are claude's); any other harness fails loud."""
+    """Closed-world launch (spec D1): dispatch to the per-harness isolation
+    builder, inject the profile env, exec the harness. claude/codex/opencode
+    each build the closed world by a different mechanism behind one
+    ``(flags, env)`` contract; cursor/copilot/crush have no isolation lever
+    and fail loud (``IsolationError`` -> ``CliError``)."""
     from agent_profile.env import EnvResolutionError
-    from agent_profile.overlay import IsolationError, build_isolated_flags
+    from agent_profile.overlay import IsolationError, build_isolated_launch
 
-    if harness != "claude":
-        raise CliError(
-            f"{colors.RED}ap launch: profile '{manifest.name}' is isolated; "
-            f"isolation is claude-only (got '{harness}'){colors.NC}"
-        )
     try:
-        flags, env = build_isolated_flags(manifest, profile_dir)
+        flags, env = build_isolated_launch(manifest, profile_dir, harness)
     except (IsolationError, EnvResolutionError) as exc:
         raise CliError(f"{colors.RED}{exc}{colors.NC}")
 
@@ -788,7 +807,7 @@ def _validate_harnesses(harnesses: list[str], colors: _Colors) -> None:
         if h not in ALL_HARNESSES:
             raise CliError(
                 f"{colors.RED}ap: unknown harness '{h}' "
-                f"(valid: claude|codex|opencode|cursor|copilot){colors.NC}"
+                f"(valid: claude|codex|opencode|cursor|copilot|crush){colors.NC}"
             )
 
 

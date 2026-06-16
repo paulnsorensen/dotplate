@@ -90,7 +90,7 @@ sync_local_marketplaces() {
         # the CLI has actually registered + fetched. `marketplace add` is the
         # idempotent op that does that: it fetches when missing, no-ops ("already
         # on disk") when present. Without this, a freshly-added local plugin
-        # (e.g. milknado) fails to install on first sync.
+        # (e.g. a local plugin) fails to install on first sync.
         if ! $DRY_RUN; then
             claude plugin marketplace add "$abs_path" >/dev/null 2>&1 \
                 || echo -e "  ${RED}Warning: failed to register $mp_name marketplace with the CLI${NC}"
