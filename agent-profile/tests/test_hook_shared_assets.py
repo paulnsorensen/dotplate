@@ -2,7 +2,7 @@
 the script so the self-locating SessionStart script resolves its lib/bank
 (spec curd 5).
 
-The session-start-cheese-flair.sh hook resolves LIB at
+The session-start-example-flair.sh hook resolves LIB at
 ``$(dirname $SCRIPT_DIR)/lib/<file>`` and BANK at ``.../reference/<file>``.
 Under the claude plugin layout the script lands at
 ``.claude/plugins/local/<profile>/hooks/<script>``, so its HARNESS_ROOT is the
@@ -31,12 +31,12 @@ from .conftest import write_profile
 _HOOK_PROFILE = """\
 name: flairprof
 hooks:
-  - name: session-start-cheese-flair
+  - name: session-start-example-flair
     event: SessionStart
     script: hooks/flair.sh
     shared_assets:
-      - agents/lib/cheese-flair.sh
-      - agents/reference/cheese-flair.md
+      - agents/lib/example-flair.sh
+      - agents/reference/example-flair.md
     matcher: "startup|resume"
     timeout: 5
     harnesses: [claude, codex]
@@ -50,8 +50,8 @@ def _materialize(profiles_root: Path) -> Path:
         _HOOK_PROFILE,
         {
             "hooks/flair.sh": "#!/usr/bin/env bash\necho flair\n",
-            "agents/lib/cheese-flair.sh": "# the lib\ncheese_sample() { :; }\n",
-            "agents/reference/cheese-flair.md": "# the bank\n- Cheese Lord\n",
+            "agents/lib/example-flair.sh": "# the lib\ncheese_sample() { :; }\n",
+            "agents/reference/example-flair.md": "# the bank\n- Example Lord\n",
         },
     )
 
@@ -62,10 +62,10 @@ def _materialize(profiles_root: Path) -> Path:
 def test_relpath_drops_leading_repo_subdir():
     # The chezmoi rule: agents/<subdir>/<file> -> <subdir>/<file> rooted at
     # the harness root. The leading `agents/` component is dropped.
-    assert shared_asset_relpath("agents/lib/cheese-flair.sh") == "lib/cheese-flair.sh"
+    assert shared_asset_relpath("agents/lib/example-flair.sh") == "lib/example-flair.sh"
     assert (
-        shared_asset_relpath("agents/reference/cheese-flair.md")
-        == "reference/cheese-flair.md"
+        shared_asset_relpath("agents/reference/example-flair.md")
+        == "reference/example-flair.md"
     )
 
 
@@ -94,18 +94,18 @@ def rendered_claude(env):
 def test_claude_copies_shared_assets_into_plugin_subdirs(rendered_claude):
     target, _ = rendered_claude
     plugin = target / ".claude/plugins/local/flairprof"
-    lib = plugin / "lib/cheese-flair.sh"
-    bank = plugin / "reference/cheese-flair.md"
+    lib = plugin / "lib/example-flair.sh"
+    bank = plugin / "reference/example-flair.md"
     assert lib.is_file()
     assert bank.is_file()
     assert lib.read_text() == "# the lib\ncheese_sample() { :; }\n"
-    assert bank.read_text() == "# the bank\n- Cheese Lord\n"
+    assert bank.read_text() == "# the bank\n- Example Lord\n"
 
 
 def test_claude_shared_assets_are_tracked(rendered_claude):
     _, written = rendered_claude
-    assert ".claude/plugins/local/flairprof/lib/cheese-flair.sh" in written
-    assert ".claude/plugins/local/flairprof/reference/cheese-flair.md" in written
+    assert ".claude/plugins/local/flairprof/lib/example-flair.sh" in written
+    assert ".claude/plugins/local/flairprof/reference/example-flair.md" in written
 
 
 def test_claude_self_location_invariant(rendered_claude):
@@ -116,8 +116,8 @@ def test_claude_self_location_invariant(rendered_claude):
     script = plugin / "hooks/flair.sh"
     assert script.is_file()
     harness_root = script.parent.parent
-    assert (harness_root / "lib/cheese-flair.sh").is_file()
-    assert (harness_root / "reference/cheese-flair.md").is_file()
+    assert (harness_root / "lib/example-flair.sh").is_file()
+    assert (harness_root / "reference/example-flair.md").is_file()
 
 
 def test_claude_missing_shared_asset_fails_loud(env):
@@ -147,8 +147,8 @@ def rendered_codex(env):
 
 def test_codex_copies_shared_assets_into_harness_root_subdirs(rendered_codex):
     target, _ = rendered_codex
-    lib = target / ".codex/lib/cheese-flair.sh"
-    bank = target / ".codex/reference/cheese-flair.md"
+    lib = target / ".codex/lib/example-flair.sh"
+    bank = target / ".codex/reference/example-flair.md"
     assert lib.is_file()
     assert bank.is_file()
     assert lib.read_text() == "# the lib\ncheese_sample() { :; }\n"
@@ -156,8 +156,8 @@ def test_codex_copies_shared_assets_into_harness_root_subdirs(rendered_codex):
 
 def test_codex_shared_assets_are_tracked(rendered_codex):
     _, written = rendered_codex
-    assert ".codex/lib/cheese-flair.sh" in written
-    assert ".codex/reference/cheese-flair.md" in written
+    assert ".codex/lib/example-flair.sh" in written
+    assert ".codex/reference/example-flair.md" in written
 
 
 def test_codex_self_location_invariant(rendered_codex):
@@ -166,5 +166,5 @@ def test_codex_self_location_invariant(rendered_codex):
     script = target / ".codex/hooks/flair.sh"
     assert script.is_file()
     harness_root = script.parent.parent
-    assert (harness_root / "lib/cheese-flair.sh").is_file()
-    assert (harness_root / "reference/cheese-flair.md").is_file()
+    assert (harness_root / "lib/example-flair.sh").is_file()
+    assert (harness_root / "reference/example-flair.md").is_file()

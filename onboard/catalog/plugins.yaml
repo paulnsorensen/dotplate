@@ -1,6 +1,6 @@
 # Catalog — Claude Code plugins
 # Each item is an offerable plugin during onboarding pass 6 (agent config).
-# Excludes: vaudeville, cheese-flow, milknado (all reference personal ~/Dev/ paths).
+# Excludes: vaudeville, cheese-flow, and plugins that reference personal ~/Dev/ paths.
 # The `entry` block is copied verbatim into claude/plugins/registry.yaml under `plugins:`.
 
 plugins:

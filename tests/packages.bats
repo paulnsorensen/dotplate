@@ -23,11 +23,15 @@ setup() {
     export CARGO_LOG="$TEST_HOME/cargo.log"
     export GH_LOG="$TEST_HOME/gh.log"
     export NPM_LOG="$TEST_HOME/npm.log"
+    export SUDO_LOG="$TEST_HOME/sudo.log"
 
     write_mock_brew
     write_mock_cargo
     write_mock_gh
     write_mock_npm
+    # Mock sudo records its args and no-ops — guarantees the Linux brew-deps
+    # bootstrap can never run a real `sudo apt-get` against the test machine.
+    write_mock_sudo
     export PATH="$MOCK_BIN:$PATH"
 }
 
@@ -36,6 +40,15 @@ teardown() {
 }
 
 # --- Mock helpers ---
+
+write_mock_sudo() {
+    cat > "$MOCK_BIN/sudo" << 'MOCKSUDO'
+#!/bin/bash
+echo "sudo $*" >> "$SUDO_LOG"
+exit 0
+MOCKSUDO
+    chmod +x "$MOCK_BIN/sudo"
+}
 
 # Usage: write_mock_brew [installed_formulae] [installed_casks] [fail_pkg] [outdated_greedy_casks]
 write_mock_brew() {
@@ -127,18 +140,25 @@ MOCKGH
     chmod +x "$MOCK_BIN/gh"
 }
 
+write_mock_uv() {
+    cat > "$MOCK_BIN/uv" << 'MOCKUV'
+#!/bin/bash
+[[ "$1 $2" == "tool list" ]] && echo ""
+exit 0
+MOCKUV
+    chmod +x "$MOCK_BIN/uv"
+}
 write_test_yaml() {
     cat > "$PACKAGES_FILE" << 'YAML'
 packages:
   - test/tap-repo: { source: tap }
   - curl
   - jq
-  - fd: { apt: fd-find }
-  - node: { apt: nodejs }
+  - fd
+  - node
   - mas: { platform: mac }
   - xclip: { platform: linux }
   - docker-desktop: { source: cask, dev: true, platform: mac, greedy: false }
-  - npm: { platform: linux, dev: true }
   - pyenv: { dev: true }
   - cargo-llvm-cov: { source: cargo }
   - gh-stack: { source: gh-extension, pkg: github/gh-stack }
@@ -201,7 +221,6 @@ run_sync() {
 # --- Integration: sync installs the right packages ---
 
 @test "sync installs bare-string formulae via brew" {
-    [[ "$(uname)" == "Darwin" ]] || skip "macOS only (sync_brew not invoked on Linux)"
 
     write_test_yaml
     run_sync
@@ -212,7 +231,6 @@ run_sync() {
 }
 
 @test "sync installs map formulae (fd, node) via brew" {
-    [[ "$(uname)" == "Darwin" ]] || skip "macOS only (sync_brew not invoked on Linux)"
 
     write_test_yaml
     run_sync
@@ -242,9 +260,41 @@ run_sync() {
     ! grep -q "brew install xclip" "$BREW_LOG"
 }
 
-@test "sync processes taps before formulae" {
-    [[ "$(uname)" == "Darwin" ]] || skip "macOS only (sync_brew not invoked on Linux)"
+@test "sync installs linux-only packages via brew on Linux" {
+    [[ "$(uname)" == "Linux" ]] || skip "Linux only"
 
+    write_test_yaml
+    run_sync
+    assert_success
+
+    grep -q "brew install xclip" "$BREW_LOG"
+}
+
+@test "sync excludes mac-only packages on Linux" {
+    [[ "$(uname)" == "Linux" ]] || skip "Linux only"
+
+    write_test_yaml
+    run_sync
+    assert_success
+
+    # Positive control: the brew path ran and installed a both-platforms formula,
+    # so the absence below is real exclusion, not an empty brew phase.
+    grep -q "brew install jq" "$BREW_LOG"
+    ! grep -q "brew install mas" "$BREW_LOG"
+}
+
+@test "sync skips casks entirely on Linux (cask is macOS-only)" {
+    [[ "$(uname)" == "Linux" ]] || skip "Linux only"
+
+    # docker-desktop is a dev cask; even with DOTFILES_DEV=true, no
+    # `brew install --cask` should run on Linux.
+    write_test_yaml
+    DOTFILES_DEV=true run_sync
+    assert_success
+
+    ! grep -q "brew install --cask" "$BREW_LOG"
+}
+@test "sync processes taps before formulae" {
     write_test_yaml
     run_sync
     assert_success
@@ -255,6 +305,64 @@ run_sync() {
     [[ "$tap_line" -lt "$install_line" ]]
 }
 
+@test "sync trusts declared taps to satisfy Homebrew tap-trust gate" {
+    write_test_yaml
+    run_sync
+    assert_success
+
+    # Each declared tap must be trusted so fresh formula installs aren't refused.
+    grep -q "brew trust test/tap-repo" "$BREW_LOG"
+}
+
+# A PATH with the C build toolchain (gcc/make/file) absent but every tool
+# sync.sh actually needs kept via a stub of symlinks — exercises the brew-deps
+# bootstrap's "toolchain missing" branch without touching the test machine.
+path_without_buildtools() {
+    local stub="$TEST_HOME/nobuild-stub"
+    mkdir -p "$stub"
+    local -a needed=(bash sh env uname id yq jq shasum sha256sum curl git \
+        awk sed grep cut sort tr head tail cat chmod mkdir rm ln mktemp \
+        dirname basename tee wc printf find xargs sleep)
+    local tool src
+    for tool in "${needed[@]}"; do
+        src=$(command -v "$tool" 2>/dev/null || true)
+        [[ -n "$src" && ! -e "$stub/$tool" ]] && ln -sf "$src" "$stub/$tool"
+    done
+    echo "$stub"
+}
+
+@test "installs Homebrew build deps via apt up front on Linux when toolchain missing" {
+    [[ "$(uname)" == "Linux" ]] || skip "Linux only"
+
+    # apt-get + uv mocked so the apt branch is taken deterministically and the
+    # uv bootstrap doesn't shell out to curl on the scrubbed PATH.
+    printf '#!/bin/bash\nexit 0\n' > "$MOCK_BIN/apt-get"; chmod +x "$MOCK_BIN/apt-get"
+    write_mock_uv
+    write_test_yaml
+
+    PATH="$MOCK_BIN:$(path_without_buildtools)" run_sync
+    assert_success
+
+    assert_output_contains "Installing Homebrew build dependencies"
+    grep -q "sudo apt-get install -y build-essential procps curl file git" "$SUDO_LOG"
+}
+
+@test "skips Homebrew build-dep install when toolchain already present" {
+    [[ "$(uname)" == "Linux" ]] || skip "Linux only"
+
+    # Stub the full toolchain so the check passes regardless of host state.
+    local t
+    for t in gcc make file git curl; do
+        printf '#!/bin/bash\nexit 0\n' > "$MOCK_BIN/$t"; chmod +x "$MOCK_BIN/$t"
+    done
+    write_test_yaml
+
+    run_sync
+    assert_success
+
+    ! grep -q "Installing Homebrew build dependencies" <<< "$output"
+    [[ ! -f "$SUDO_LOG" ]]
+}
 @test "sync skips dev packages when DOTFILES_DEV is not set" {
     [[ "$(uname)" == "Darwin" ]] || skip "macOS only"
 
@@ -705,6 +813,110 @@ MOCKCARGO
     ! grep -q "cargo install --force cargo-llvm-cov" "$CARGO_LOG"
 }
 
+# --- Integration: sync_harness_selfupdate ---
+
+@test "UPGRADE_MODE runs claude update and codex update when both present" {
+    write_test_yaml
+
+    export CLAUDE_LOG="$TEST_HOME/claude.log"
+    export CODEX_LOG="$TEST_HOME/codex.log"
+
+    cat > "$MOCK_BIN/claude" << MOCKCLAUDE
+#!/bin/bash
+echo "claude \$*" >> "$CLAUDE_LOG"
+exit 0
+MOCKCLAUDE
+    chmod +x "$MOCK_BIN/claude"
+
+    cat > "$MOCK_BIN/codex" << MOCKCODEX
+#!/bin/bash
+echo "codex \$*" >> "$CODEX_LOG"
+exit 0
+MOCKCODEX
+    chmod +x "$MOCK_BIN/codex"
+
+    UPGRADE_MODE=true run bash "$SYNC_SCRIPT"
+    assert_success
+
+    grep -q "claude update" "$CLAUDE_LOG"
+    grep -q "codex update" "$CODEX_LOG"
+}
+
+@test "UPGRADE_MODE skips codex update when codex absent but still runs claude update" {
+    write_test_yaml
+
+    export CLAUDE_LOG="$TEST_HOME/claude.log"
+
+    cat > "$MOCK_BIN/claude" << MOCKCLAUDE
+#!/bin/bash
+echo "claude \$*" >> "$CLAUDE_LOG"
+exit 0
+MOCKCLAUDE
+    chmod +x "$MOCK_BIN/claude"
+    # No codex mock — intentionally absent
+
+    local clean_path
+    clean_path=$(scrub_toolchain_path | tr ':' '\n' | while IFS= read -r d; do [[ -x "$d/codex" ]] || printf '%s:' "$d"; done)
+    UPGRADE_MODE=true PATH="$MOCK_BIN:${clean_path%:}" run bash "$SYNC_SCRIPT"
+    assert_success
+
+    grep -q "claude update" "$CLAUDE_LOG"
+    assert_output_contains "codex not found"
+}
+
+@test "non-UPGRADE_MODE does not invoke claude or codex update" {
+    write_test_yaml
+
+    export CLAUDE_LOG="$TEST_HOME/claude.log"
+    export CODEX_LOG="$TEST_HOME/codex.log"
+
+    cat > "$MOCK_BIN/claude" << MOCKCLAUDE
+#!/bin/bash
+echo "claude \$*" >> "$CLAUDE_LOG"
+exit 0
+MOCKCLAUDE
+    chmod +x "$MOCK_BIN/claude"
+
+    cat > "$MOCK_BIN/codex" << MOCKCODEX
+#!/bin/bash
+echo "codex \$*" >> "$CODEX_LOG"
+exit 0
+MOCKCODEX
+    chmod +x "$MOCK_BIN/codex"
+
+    run_sync
+    assert_success
+
+    [[ ! -f "$CLAUDE_LOG" ]] || ! grep -q "claude update" "$CLAUDE_LOG"
+    [[ ! -f "$CODEX_LOG" ]] || ! grep -q "codex update" "$CODEX_LOG"
+}
+
+@test "UPGRADE_MODE continues and exits 0 when one harness updater fails" {
+    write_test_yaml
+
+    export CLAUDE_LOG="$TEST_HOME/claude.log"
+    export CODEX_LOG="$TEST_HOME/codex.log"
+
+    cat > "$MOCK_BIN/claude" << MOCKCLAUDE
+#!/bin/bash
+echo "claude \$*" >> "$CLAUDE_LOG"
+exit 1
+MOCKCLAUDE
+    chmod +x "$MOCK_BIN/claude"
+
+    cat > "$MOCK_BIN/codex" << MOCKCODEX
+#!/bin/bash
+echo "codex \$*" >> "$CODEX_LOG"
+exit 0
+MOCKCODEX
+    chmod +x "$MOCK_BIN/codex"
+
+    UPGRADE_MODE=true run bash "$SYNC_SCRIPT"
+    assert_success
+
+    assert_output_contains "claude update failed"
+    grep -q "codex update" "$CODEX_LOG"
+}
 # ─── APT branch: sync_apt EUID/sudo selection ────────────────────────────────
 #
 # WHY: sync_apt chooses apt_cmd based on EUID and sudo availability:
@@ -745,14 +957,6 @@ MOCKAPT
     chmod +x "$MOCK_BIN/apt-get"
 }
 
-write_mock_uv() {
-    cat > "$MOCK_BIN/uv" << 'MOCKUV'
-#!/bin/bash
-if [[ "$1" == "tool" && "$2" == "list" ]]; then echo ""; fi
-exit 0
-MOCKUV
-    chmod +x "$MOCK_BIN/uv"
-}
 
 write_mock_uname_linux() {
     cat > "$MOCK_BIN/uname" << 'MOCKUNAME'

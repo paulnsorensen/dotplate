@@ -908,7 +908,24 @@ TOML
     [[ "$(jq -r '.mcpServers | length' <<<"$rendered")" -ge 4 ]]
 }
 
-# ── serena config (modify_ pattern) ────────────────────────────────────────
+@test "copilot template emits stdio serena (not serena-mux)" {
+    command -v chezmoi >/dev/null 2>&1 || skip "chezmoi not installed"
+
+    local tmpl="$REAL_DOTFILES_DIR/chezmoi/private_dot_copilot/mcp-config.json.tmpl"
+    local rendered
+    rendered="$(chezmoi --source "$REAL_DOTFILES_DIR/chezmoi" execute-template < "$tmpl")"
+    # Valid JSON.
+    jq -e . <<<"$rendered" >/dev/null
+    # command must be 'serena', not the retired 'serena-mux' wrapper.
+    [[ "$(jq -r '.mcpServers.serena.command' <<<"$rendered")" == "serena" ]]
+    # Must carry the start-mcp-server + --context=copilot args.
+    [[ "$(jq -r '.mcpServers.serena.args[0]' <<<"$rendered")" == "start-mcp-server" ]]
+    [[ "$(jq -r '.mcpServers.serena.args[1]' <<<"$rendered")" == "--context=copilot" ]]
+    # No env block (serena-mux needed SERENA_MUX_HARNESS; stdio serena does not).
+    [[ "$(jq '.mcpServers.serena | has("env")' <<<"$rendered")" == "false" ]]
+}
+
+# ── serena config (modify_ pattern) ──────────────────────────────────────────
 # Serena ships ~165 lines of inline-documented defaults; we only want to
 # override three keys (web_dashboard, web_dashboard_open_on_launch,
 # excluded_tools). A full-content chezmoi template would freeze Serena's

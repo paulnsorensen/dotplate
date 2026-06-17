@@ -1,7 +1,7 @@
 # Catalog — packages
 # Each item is an offerable package during onboarding pass 4 (packages).
 # Excludes: rtk (personal tool), moshi-hook (offered via hooks catalog),
-#   milknado (personal project path), and anything already in the starter set.
+#   personal project paths, and anything already in the starter set.
 # The `entry` block is copied verbatim into packages/packages.yaml under `packages:`.
 
 packages:

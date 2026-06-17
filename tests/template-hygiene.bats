@@ -28,7 +28,7 @@ assert_not_in_repo() {
     result=$(
         git -C "$REPO_ROOT" ls-files -z 2>/dev/null \
         | grep -Ezv 'tests/template-hygiene\.bats' \
-        | grep -Ez '\.(sh|bash|yaml|yml|toml|json|tmpl|md|txt|bats|zsh)$|/zshrc$' \
+        | grep -Ez '\.(sh|bash|yaml|yml|toml|json|tmpl|md|txt|bats|zsh|py)$|/zshrc$' \
         | xargs -0 -I{} grep -l "$pattern" "$REPO_ROOT/{}" 2>/dev/null \
         || true
     )
@@ -190,8 +190,8 @@ assert_file_not_present() {
 
 # ── Cargo/personal project references ────────────────────────────────────────
 
-@test "no milknado personal project reference" {
-    assert_not_in_repo "paulnsorensen/milknado" "paulnsorensen/milknado"
+@test "no milknado personal project name in any tracked file" {
+    assert_not_in_repo "milknado" "milknado"
 }
 
 @test "no 'cheese-grok' plugin directory name in any tracked file" {

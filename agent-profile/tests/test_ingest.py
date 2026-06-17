@@ -51,20 +51,20 @@ def repo(tmp_path):
     )
     (tmp_path / "agents" / "hooks" / "registry.yaml").write_text(
         "hooks:\n"
-        "  session-start-cheese-flair:\n"
+        "  session-start-example-hook:\n"
         "    event: SessionStart\n"
-        "    script: agents/hooks/session-start-cheese-flair.sh\n"
+        "    script: agents/hooks/session-start-example-hook.sh\n"
         "    shared_assets:\n"
-        "      - agents/lib/cheese-flair.sh\n"
+        "      - agents/lib/example-hook.sh\n"
         "    harnesses: [claude, codex]\n"
         "    matcher: 'startup|resume'\n"
         "    timeout: 5\n"
         "    description: flair\n"
     )
-    (tmp_path / "agents" / "hooks" / "session-start-cheese-flair.sh").write_text(
+    (tmp_path / "agents" / "hooks" / "session-start-example-hook.sh").write_text(
         "#!/bin/bash\necho flair\n"
     )
-    (tmp_path / "agents" / "lib" / "cheese-flair.sh").write_text("# lib\n")
+    (tmp_path / "agents" / "lib" / "example-hook.sh").write_text("# lib\n")
 
     (tmp_path / "agents" / "registry.yaml").write_text(
         "agents:\n"
@@ -82,7 +82,7 @@ def repo(tmp_path):
 
     (tmp_path / "skills" / "_registry.yaml").write_text(
         "sources:\n"
-        "  paulnsorensen/easy-cheese:\n"
+        "  example-org/example-skills:\n"
         "    description: cheese skills\n"
         "    pin: v1.2.3\n"
         "    skills: [mold, cook]\n"
@@ -175,10 +175,10 @@ def test_expand_hooks_become_named_list(repo):
     out = expand_registries(directive, root, _dotenv())
     assert len(out["hooks"]) == 1
     hook = out["hooks"][0]
-    assert hook["name"] == "session-start-cheese-flair"
+    assert hook["name"] == "session-start-example-hook"
     assert hook["event"] == "SessionStart"
-    assert hook["script"] == "agents/hooks/session-start-cheese-flair.sh"
-    assert hook["shared_assets"] == ["agents/lib/cheese-flair.sh"]
+    assert hook["script"] == "agents/hooks/session-start-example-hook.sh"
+    assert hook["shared_assets"] == ["agents/lib/example-hook.sh"]
     assert hook["matcher"] == "startup|resume"
     assert hook["timeout"] == 5
     assert hook["harnesses"] == ["claude", "codex"]
@@ -269,14 +269,14 @@ def test_expand_skills_includes_external_sources(repo):
     out = expand_registries(directive, root, _dotenv())
     ext = [s for s in out["skills"] if s.get("source")]
     by_source = {s["source"] for s in ext}
-    assert "paulnsorensen/easy-cheese" in by_source
+    assert "example-org/example-skills" in by_source
     assert "tavily-ai/skills" in by_source
 
 
 def test_expand_external_skill_carries_pin_and_explicit_names(repo):
     root, directive = repo
     out = expand_registries(directive, root, _dotenv())
-    easy = [s for s in out["skills"] if s.get("source") == "paulnsorensen/easy-cheese"]
+    easy = [s for s in out["skills"] if s.get("source") == "example-org/example-skills"]
     # Explicit skills list -> one item per named skill, all carrying the pin.
     names = sorted(s["name"] for s in easy)
     assert names == ["cook", "mold"]
@@ -347,7 +347,7 @@ def test_expand_registries_absent_sections_yield_empty_lists(repo):
     # An empty directive returns every section key, each an empty list — not a
     # KeyError downstream, not a missing section.
     out = expand_registries({}, root, _dotenv())
-    assert out == {"mcps": [], "agents": [], "skills": [], "hooks": []}
+    assert out == {"mcps": [], "agents": [], "skills": [], "hooks": [], "native_plugins": []}
 
 
 def test_expand_mcps_skip_non_mapping_entries(repo):

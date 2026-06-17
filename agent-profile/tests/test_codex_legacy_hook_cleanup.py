@@ -30,16 +30,16 @@ def _manifest_with_hook(src: Path, script_basename: str) -> Manifest:
     """A minimal manifest with one codex SessionStart hook. ``harnesses``
     is set explicitly because ``hooks_for`` defaults to claude-only
     membership — the real registry declares ``harnesses: [claude, codex]``
-    for the cheese-flair hook so codex picks it up."""
+    for the example-flair hook so codex picks it up."""
     hooks_dir = src / "hooks"
     hooks_dir.mkdir(parents=True, exist_ok=True)
-    (hooks_dir / script_basename).write_text("#!/bin/bash\n: cheese flair\n")
+    (hooks_dir / script_basename).write_text("#!/bin/bash\n: example flair\n")
     return Manifest(
         name="p1",
         description="t",
         hooks=[
             {
-                "name": "session-start-cheese-flair",
+                "name": "session-start-example-flair",
                 "event": "SessionStart",
                 "script": f"hooks/{script_basename}",
                 "matcher": "startup|resume",
@@ -118,9 +118,9 @@ def renderer():
 def test_strips_legacy_block_with_unquoted_home(renderer, src, target):
     cfg = _config_with_legacy_block(
         target,
-        command="bash $HOME/.codex/hooks/session-start-cheese-flair.sh",
+        command="bash $HOME/.codex/hooks/session-start-example-flair.sh",
     )
-    m = _manifest_with_hook(src, "session-start-cheese-flair.sh")
+    m = _manifest_with_hook(src, "session-start-example-flair.sh")
 
     renderer.render(m, target)
 
@@ -134,9 +134,9 @@ def test_strips_legacy_block_with_unquoted_home(renderer, src, target):
 def test_strips_legacy_block_with_quoted_home(renderer, src, target):
     cfg = _config_with_legacy_block(
         target,
-        command='bash "$HOME/.codex/hooks/session-start-cheese-flair.sh"',
+        command='bash "$HOME/.codex/hooks/session-start-example-flair.sh"',
     )
-    m = _manifest_with_hook(src, "session-start-cheese-flair.sh")
+    m = _manifest_with_hook(src, "session-start-example-flair.sh")
 
     renderer.render(m, target)
 
@@ -150,7 +150,7 @@ def test_preserves_user_authored_session_start_block(renderer, src, target):
     the cleanup tightly scoped to migration debris."""
     cfg = _config_with_legacy_block(
         target,
-        command="bash $HOME/.codex/hooks/session-start-cheese-flair.sh",
+        command="bash $HOME/.codex/hooks/session-start-example-flair.sh",
         extra_user_blocks=[
             {
                 "matcher": "startup",
@@ -158,7 +158,7 @@ def test_preserves_user_authored_session_start_block(renderer, src, target):
             }
         ],
     )
-    m = _manifest_with_hook(src, "session-start-cheese-flair.sh")
+    m = _manifest_with_hook(src, "session-start-example-flair.sh")
 
     renderer.render(m, target)
 
@@ -180,16 +180,16 @@ def test_preserves_user_hook_with_same_basename_at_different_path(
     is left alone."""
     cfg = _config_with_legacy_block(
         target,
-        command="bash $HOME/.codex/hooks/session-start-cheese-flair.sh",
+        command="bash $HOME/.codex/hooks/session-start-example-flair.sh",
         extra_user_blocks=[
             {
                 "matcher": "startup",
                 # Same basename, different path → not managed.
-                "command": "bash /opt/me/session-start-cheese-flair.sh",
+                "command": "bash /opt/me/session-start-example-flair.sh",
             }
         ],
     )
-    m = _manifest_with_hook(src, "session-start-cheese-flair.sh")
+    m = _manifest_with_hook(src, "session-start-example-flair.sh")
 
     renderer.render(m, target)
 
@@ -198,7 +198,7 @@ def test_preserves_user_hook_with_same_basename_at_different_path(
     assert len(survived) == 1
     assert (
         survived[0]["hooks"][0]["command"]
-        == "bash /opt/me/session-start-cheese-flair.sh"
+        == "bash /opt/me/session-start-example-flair.sh"
     )
 
 
@@ -208,13 +208,13 @@ def test_preserves_other_top_level_keys(renderer, src, target):
     keep the user's file shape intact."""
     cfg = _config_with_legacy_block(
         target,
-        command="bash $HOME/.codex/hooks/session-start-cheese-flair.sh",
+        command="bash $HOME/.codex/hooks/session-start-example-flair.sh",
         extra_top_level={
             "approval_policy": "on-request",
             "sandbox_mode": "workspace-write",
         },
     )
-    m = _manifest_with_hook(src, "session-start-cheese-flair.sh")
+    m = _manifest_with_hook(src, "session-start-example-flair.sh")
 
     renderer.render(m, target)
 
@@ -236,7 +236,7 @@ def test_no_op_when_config_has_no_legacy_block(renderer, src, target):
         'command = "echo"\n'
     )
     cfg.write_text(original)
-    m = _manifest_with_hook(src, "session-start-cheese-flair.sh")
+    m = _manifest_with_hook(src, "session-start-example-flair.sh")
 
     renderer.render(m, target)
 
@@ -250,7 +250,7 @@ def test_no_op_when_config_has_no_legacy_block(renderer, src, target):
 def test_no_op_when_config_toml_missing(renderer, src, target):
     """A fresh machine has no ``.codex/config.toml`` yet; the cleanup
     must not crash or create the file."""
-    m = _manifest_with_hook(src, "session-start-cheese-flair.sh")
+    m = _manifest_with_hook(src, "session-start-example-flair.sh")
 
     renderer.render(m, target)
 
@@ -270,8 +270,8 @@ def test_strips_two_legacy_blocks_with_different_command_forms(
     hooks_table = tomlkit.table()
     aot = tomlkit.aot()
     for cmd in (
-        "bash $HOME/.codex/hooks/session-start-cheese-flair.sh",
-        'bash "$HOME/.codex/hooks/session-start-cheese-flair.sh"',
+        "bash $HOME/.codex/hooks/session-start-example-flair.sh",
+        'bash "$HOME/.codex/hooks/session-start-example-flair.sh"',
     ):
         block = tomlkit.table()
         block["matcher"] = "startup|resume"
@@ -287,7 +287,7 @@ def test_strips_two_legacy_blocks_with_different_command_forms(
     doc["hooks"] = hooks_table
     cfg.write_text(tomlkit.dumps(doc))
 
-    m = _manifest_with_hook(src, "session-start-cheese-flair.sh")
+    m = _manifest_with_hook(src, "session-start-example-flair.sh")
     renderer.render(m, target)
 
     doc_after = tomlkit.parse(cfg.read_text())
@@ -315,7 +315,7 @@ def test_preserves_user_hook_with_same_basename_under_different_event(
     ss_inner = tomlkit.aot()
     ss_t = tomlkit.table()
     ss_t["type"] = "command"
-    ss_t["command"] = "bash $HOME/.codex/hooks/session-start-cheese-flair.sh"
+    ss_t["command"] = "bash $HOME/.codex/hooks/session-start-example-flair.sh"
     ss_inner.append(ss_t)
     ss_block["hooks"] = ss_inner
     ss_aot.append(ss_block)
@@ -328,7 +328,7 @@ def test_preserves_user_hook_with_same_basename_under_different_event(
     pre_inner = tomlkit.aot()
     pre_t = tomlkit.table()
     pre_t["type"] = "command"
-    pre_t["command"] = "bash $HOME/.codex/hooks/session-start-cheese-flair.sh"
+    pre_t["command"] = "bash $HOME/.codex/hooks/session-start-example-flair.sh"
     pre_inner.append(pre_t)
     pre_block["hooks"] = pre_inner
     pre_aot.append(pre_block)
@@ -337,7 +337,7 @@ def test_preserves_user_hook_with_same_basename_under_different_event(
     doc["hooks"] = hooks_table
     cfg.write_text(tomlkit.dumps(doc))
 
-    m = _manifest_with_hook(src, "session-start-cheese-flair.sh")
+    m = _manifest_with_hook(src, "session-start-example-flair.sh")
     renderer.render(m, target)
 
     doc_after = tomlkit.parse(cfg.read_text())
@@ -349,7 +349,7 @@ def test_preserves_user_hook_with_same_basename_under_different_event(
     )
     assert (
         doc_after["hooks"]["PreToolUse"][0]["hooks"][0]["command"]
-        == "bash $HOME/.codex/hooks/session-start-cheese-flair.sh"
+        == "bash $HOME/.codex/hooks/session-start-example-flair.sh"
     )
 
 
@@ -367,7 +367,7 @@ def test_preserves_other_event_types(renderer, src, target):
     ss_inner = tomlkit.aot()
     ss_t = tomlkit.table()
     ss_t["type"] = "command"
-    ss_t["command"] = "bash $HOME/.codex/hooks/session-start-cheese-flair.sh"
+    ss_t["command"] = "bash $HOME/.codex/hooks/session-start-example-flair.sh"
     ss_inner.append(ss_t)
     ss_block["hooks"] = ss_inner
     ss_aot.append(ss_block)
@@ -387,7 +387,7 @@ def test_preserves_other_event_types(renderer, src, target):
     doc["hooks"] = hooks_table
     cfg.write_text(tomlkit.dumps(doc))
 
-    m = _manifest_with_hook(src, "session-start-cheese-flair.sh")
+    m = _manifest_with_hook(src, "session-start-example-flair.sh")
     renderer.render(m, target)
 
     doc_after = tomlkit.parse(cfg.read_text())
